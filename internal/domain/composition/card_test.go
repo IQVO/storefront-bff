@@ -42,3 +42,18 @@ func TestErrorWrapping(t *testing.T) {
 		t.Fatalf("UpstreamError: %v", err)
 	}
 }
+
+func TestLooksLikeCardNumberLengthBoundaries(t *testing.T) {
+	// Luhn-valid numbers of 12, 13, 19 and 20 digits.
+	cases := map[string]bool{
+		"100000000008":         false,
+		"1000000000009":        true,
+		"1000000000000000009":  true,
+		"10000000000000000008": false,
+	}
+	for in, want := range cases {
+		if got := LooksLikeCardNumber(in); got != want {
+			t.Errorf("%s (%d digits) = %v, want %v", in, len(in), got, want)
+		}
+	}
+}

@@ -28,3 +28,15 @@ func TestBudgetsValidateRejectsNonPositive(t *testing.T) {
 		}
 	}
 }
+
+func TestBudgetsValidateEachZeroField(t *testing.T) {
+	s := time.Second
+	for _, b := range []Budgets{{0, s, s}, {s, 0, s}, {s, s, 0}} {
+		if err := b.Validate(); !errors.Is(err, ErrBadBudget) {
+			t.Errorf("%+v: err = %v", b, err)
+		}
+	}
+	if err := (Budgets{s, s, s}).Validate(); err != nil {
+		t.Errorf("positive budgets: %v", err)
+	}
+}

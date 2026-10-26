@@ -47,3 +47,16 @@ func TestDecodeStateDropsGarbage(t *testing.T) {
 		t.Fatalf("trim: got %+v", got)
 	}
 }
+
+func TestValidIDAcceptsEveryCharacterClassEdge(t *testing.T) {
+	for _, id := range []string{"a", "z", "A", "Z", "0", "9", "azAZ09", "a.z_A-Z"} {
+		if !ValidID(id) {
+			t.Errorf("%q should be valid", id)
+		}
+	}
+	for _, id := range []string{"{", "[", "@", "`", ":", "/", "a{", "a[", "a@", "a`", "a:", "a/"} {
+		if ValidID(id) {
+			t.Errorf("%q should be invalid", id)
+		}
+	}
+}

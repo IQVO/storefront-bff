@@ -27,5 +27,8 @@ unleash:
     # differs. See HARNESS.md's mutation-testing section for the
     # tagless-switch-under-reports pitfall before assuming a low number
     # means missing tests.
-    efficacy: "0"
-    mutant-coverage: "0"
+    efficacy: "98"
+    mutant-coverage: "97"
+    # Measured 2026-10-26 over ./internal/domain (the pure composition package):
+    # 69 mutants, efficacy 100.00%, mutator coverage 98.57% (one constant
+    # expression, KeyWindow, is not instrumentable). Thresholds sit just below.

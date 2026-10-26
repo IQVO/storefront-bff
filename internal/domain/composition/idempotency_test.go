@@ -65,3 +65,9 @@ func TestMintKeyFieldsCannotBleed(t *testing.T) {
 		t.Fatal("route/subject boundary must be delimited")
 	}
 }
+
+func TestKeyWindowIsTenMinutes(t *testing.T) {
+	if KeyWindow != 10*time.Minute {
+		t.Fatalf("KeyWindow = %s", KeyWindow)
+	}
+}

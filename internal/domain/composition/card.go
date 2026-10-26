@@ -19,11 +19,11 @@ func IsCardFieldName(key string) bool { return cardFieldNames[strings.ToLower(ke
 func LooksLikeCardNumber(s string) bool {
 	digits := make([]int, 0, 19)
 	for _, r := range s {
-		switch {
-		case r >= '0' && r <= '9':
+		if r >= '0' && r <= '9' {
 			digits = append(digits, int(r-'0'))
-		case r == ' ' || r == '-':
-		default:
+			continue
+		}
+		if r != ' ' && r != '-' {
 			return false
 		}
 	}
@@ -34,9 +34,8 @@ func LooksLikeCardNumber(s string) bool {
 	for i := range digits {
 		d := digits[len(digits)-1-i]
 		if i%2 == 1 {
-			if d *= 2; d > 9 {
-				d -= 9
-			}
+			d *= 2
+			d = d/10 + d%10
 		}
 		sum += d
 	}
