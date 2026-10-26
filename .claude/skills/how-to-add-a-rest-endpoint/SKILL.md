@@ -13,7 +13,7 @@ HTTP handler before the domain invariant it enforces produces handlers
 that validate nothing and use cases that get bypassed.
 
 This walks the exact path `POST /bins/{binId}/cycle-count` took
-(`internal/application/usecases/run_cycle_count.go` +
+(`internal/application/usecases/carts.go` +
 `internal/adapters/inbound/http/server.go`'s `handleRunCycleCount`) as the
 concrete worked example — read those two files alongside this guide.
 
@@ -64,7 +64,7 @@ ports are interfaces ONLY (`TestPortsAreCustomerOwned`/
 package fails CI).
 
 Write the use case's unit test against the in-memory adapter
-(`internal/adapters/outbound/memory/`) — never a real Postgres/HTTP call
+(a stub `ports.Upstream` (this service has no memory adapter)) — never a real Postgres/HTTP call
 in a unit test. Cover the success path AND the domain-rule failure path.
 
 ## 3. Adapter: wire the HTTP handler
@@ -112,7 +112,7 @@ npm run gen-api-docs
 
 If this endpoint is user-facing behaviour (not purely internal
 plumbing), add a `.feature` file under `features/` exercising it
-end-to-end against the real HTTP server — see `features/cycle_count.feature`
+end-to-end against the real HTTP server — see `cmd/api/integration_journey_test.go`
 for the exact shape this repo's `bdd` CI job expects (Given/When/Then over
 real HTTP, not mocked).
 

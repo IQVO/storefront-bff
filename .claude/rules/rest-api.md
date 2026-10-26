@@ -5,22 +5,32 @@ paths:
   - "apis/openapi/**"
 ---
 
-<!-- TEMPLATE (warehouse-harness-template v2): fill in for THIS repo. -->
 # REST API (inbound adapter)
 
-List every route -> use case mapping, kept in sync with `apis/openapi.yaml`
-(the `docs-api-drift` CI job fails if generated docs disagree with this
-file's own spec, but this file itself is documentation for an agent, not
-generated -- keep it manually accurate).
+The edge is served under `/api/storefront` (the prefix is optional on the
+wire). `apis/openapi.yaml` documents it; `TestRoutesMatchOpenAPI` fails when
+router and spec differ. Route -> use case -> upstream call:
 
-- `<METHOD> <path>`    -> `<UseCaseName>`
-- ...
+- `GET /products` -> `SearchProducts` -> product-discovery `GET /products`
+- `GET /products/{id}` -> `GetProduct` -> `GET /products/{id}`
+- `POST /products/{id}:delivery-dates` -> `DeliveryDates` -> delivery-promise `POST /delivery-offers:quote` + pricing `GET /delivery-charge-schedules/current`
+- `POST /carts` -> `CreateCart`; `GET /carts` -> `ListCarts`; `GET /carts/{id}` -> `GetCart`
+- `POST /carts/{id}/lines` -> `AddLine`; `PATCH|DELETE /carts/{id}/lines/{item}` -> `SetLineQuantity` / `RemoveLine` (`:set-quantity` / `:remove`)
+- `POST /carts/{id}/destination` -> `SetDestination`; `POST /carts/{id}/delivery:quote|select` -> `QuoteDelivery` / `SelectDelivery`
+- `POST /checkout` -> `OpenCheckout`; `GET /checkout/{id}` -> `GetCheckout`; `POST /checkout/{id}:confirm` -> `ConfirmCheckout`
+- `GET /orders` -> `ListOrders`; `GET /orders/{id}` -> `GetOrder` (order + tracking + checkout totals); `POST /orders/{id}:cancel` -> `CancelOrder`
+- `POST /shoppers` -> `RegisterShopper`; `POST /sessions` -> `Login` (e-mail lookup); `GET /me` -> `Me`; `POST /me/addresses` -> `AddAddress`
 
 ## Conventions
 
-- Error shape: <RFC 7807 problem+json? custom envelope? state it>.
-- Auth: <this fleet's fleet-wide REST+MCP auth was deliberately reverted
-  2026-09-11 and is unauthenticated pending a fresh decision -- state
-  whichever is true for this repo, and keep
-  `internal/architecture/fitness_test.go`'s TestNoAuthMiddlewareReintroduced
-  in sync if that ever changes>.
+- Error shape: RFC 9457 `application/problem+json`, `type` = `/problems/<slug>`.
+  Upstream problems pass through unchanged. Edge slugs: `validation-failed` (422),
+  `session-required` (422), `malformed-request` (400), `resource-not-found` (404),
+  `payload-too-large` (413), `upstream-unavailable` (503), `gateway-timeout` (504), `internal-error` (500).
+- Idempotency: the BFF mints the upstream `Idempotency-Key` (`composition.MintKey`);
+  a page may pin it with `X-Action-Id`. Queries carry no key.
+- Budgets: 2 s query, 5 s command, 15 s confirm (env `BUDGET_*_MS`); expiry is 504; nothing is retried.
+- Bodies are never logged (`TestBFFNeverLogsBodies`); the access log has method, route pattern, status, duration.
+- Cookie `sf_state`: HttpOnly, SameSite=Lax, path `/api/storefront`; state, not authentication.
+- Auth: none. Fleet-wide auth was reverted 2026-09-11; `TestNoAuthMiddlewareReintroduced` guards it.
+- Card data: only a PSP `paymentMethodToken` is accepted (`TestNoCardDataAnywhere`).
