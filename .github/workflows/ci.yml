@@ -204,8 +204,8 @@ jobs:
         run: npm install -g @stoplight/spectral-cli
       - name: Lint OpenAPI spec
         run: spectral lint apis/openapi.yaml --ruleset .spectral.yaml --fail-severity=warn
-      - name: Lint AsyncAPI spec
-        run: spectral lint apis/asyncapi.yaml --ruleset .spectral.asyncapi.yaml --fail-severity=warn
+      # No AsyncAPI step: this edge service publishes/consumes no events by design
+      # (precedent: warehouse-ops-agent drops the api-lint job entirely).
 
   # Supply-chain sensor: known CVEs in the dependency graph and in the Go
   # stdlib version this module builds against.
