@@ -5,7 +5,9 @@ go 1.27.3
 require (
 	github.com/arch-go/arch-go v1.7.0
 	github.com/cloudevents/sdk-go/v2 v2.16.2
+	github.com/go-chi/chi/v5 v5.5.0
 	github.com/segmentio/kafka-go v0.4.51
+	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
@@ -22,5 +24,4 @@ require (
 	golang.org/x/sync v0.23.0 // indirect
 	golang.org/x/sys v0.47.0 // indirect
 	golang.org/x/tools v0.49.0 // indirect
-	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
