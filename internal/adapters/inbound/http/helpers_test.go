@@ -44,9 +44,10 @@ func reply(status int, body string) composition.Reply {
 }
 
 type rig struct {
-	up   *stubUp
-	logs *bytes.Buffer
-	h    http.Handler
+	server *Server
+	up     *stubUp
+	logs   *bytes.Buffer
+	h      http.Handler
 }
 
 func newRig() *rig {
@@ -54,7 +55,8 @@ func newRig() *rig {
 	logs := &bytes.Buffer{}
 	log := slog.New(slog.NewTextHandler(logs, nil))
 	g := usecases.NewGateway(up, composition.DefaultBudgets(), func() time.Time { return time.Date(2026, 10, 26, 0, 0, 0, 0, time.UTC) })
-	return &rig{up: up, logs: logs, h: NewServer(g, log, true).Handler()}
+	srv := NewServer(g, log, true)
+	return &rig{server: srv, up: up, logs: logs, h: srv.Handler()}
 }
 
 func (g *rig) do(method, target, body string, cookie string) *httptest.ResponseRecorder {

@@ -29,7 +29,9 @@ func NewServer(g *usecases.Gateway, log *slog.Logger, secure bool) *Server {
 }
 
 // Handler returns the full router, including /healthz and /readyz.
-func (s *Server) Handler() http.Handler {
+func (s *Server) Handler() http.Handler { return stripBase(s.router()) }
+
+func (s *Server) router() chi.Router {
 	r := chi.NewRouter()
 	r.Use(recoverPanic(s.log), accessLog(s.log), rejectNUL)
 	r.Get("/healthz", ok)
@@ -42,7 +44,7 @@ func (s *Server) Handler() http.Handler {
 	r.MethodNotAllowed(func(w http.ResponseWriter, _ *http.Request) {
 		writeProblem(w, problemKind{http.StatusMethodNotAllowed, "method-not-allowed", "Method not allowed"}, "")
 	})
-	return stripBase(r)
+	return r
 }
 
 func stripBase(next http.Handler) http.Handler {
