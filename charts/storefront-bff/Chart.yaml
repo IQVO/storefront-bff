@@ -1,0 +1,12 @@
+apiVersion: v2
+name: storefront-bff
+description: Storefront BFF - the shopper-facing storefront edge (/api/storefront): a backend-for-frontend that composes product-discovery, delivery-promise, shopping-cart, checkout, customer-ordering and pricing over REST and carries cart/session state in a cookie; no database, no Kafka
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+home: https://github.com/IQVO/storefront-bff
+keywords:
+  - ddd
+  - hexagonal-architecture
+  - retail-network
+  - golang
