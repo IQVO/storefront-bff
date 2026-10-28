@@ -1,0 +1,10 @@
+# Used by `helm lint` / `ct lint` (chart-testing): the chart refuses to render
+# without the six mandatory upstream base URLs. Dummy hosts; nothing here is
+# ever dialled.
+config:
+  productDiscoveryUrl: "http://product-discovery.example.invalid"
+  deliveryPromiseUrl: "http://delivery-promise.example.invalid"
+  shoppingCartUrl: "http://shopping-cart.example.invalid"
+  checkoutUrl: "http://checkout.example.invalid"
+  customerOrderingUrl: "http://customer-ordering.example.invalid"
+  pricingUrl: "http://pricing.example.invalid"

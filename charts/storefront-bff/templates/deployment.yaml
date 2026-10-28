@@ -1,0 +1,136 @@
+{{- include "storefront-bff.requireRealRuntime" . -}}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "storefront-bff.fullname" . }}
+  labels:
+    {{- include "storefront-bff.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+spec:
+  {{- if not .Values.autoscaling.api.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "storefront-bff.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: api
+  template:
+    metadata:
+      annotations:
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+      labels:
+        {{- include "storefront-bff.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: api
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      terminationGracePeriodSeconds: {{ .Values.terminationGracePeriodSeconds }}
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "storefront-bff.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: {{ include "storefront-bff.image" . | quote }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.targetPort }}
+              protocol: TCP
+          # Every config.* value also reaches cmd/api through the chart
+          # ConfigMap; the explicit `env` entries below win over envFrom for
+          # the same key and carry the same values. The checksum/config
+          # annotation above rolls the pods when the ConfigMap changes.
+          # tests/render_test.sh asserts the mount and that every variable
+          # cmd/api reads is rendered.
+          envFrom:
+            - configMapRef:
+                name: {{ include "storefront-bff.fullname" . }}
+          # The env contract is internal/config/config.go (cmd/api passes
+          # os.Getenv to config.Load; nothing else reads the environment).
+          # A value with a dedicated chart key is rendered here, never through
+          # extraEnv. There is no database DSN and no broker variable: the BFF
+          # keeps cart/session state in the shopper's cookie and composes the
+          # six upstreams over REST.
+          env:
+            - name: PORT
+              value: {{ .Values.config.port | quote }}
+            # Secure attribute on the state cookie (binary default true; the
+            # chart defaults to false because the kind cluster serves plain
+            # HTTP).
+            - name: COOKIE_SECURE
+              value: {{ .Values.config.cookieSecure | quote }}
+            # The six sibling services the edge composes; all mandatory.
+            - name: PRODUCT_DISCOVERY_URL
+              value: {{ .Values.config.productDiscoveryUrl | quote }}
+            - name: DELIVERY_PROMISE_URL
+              value: {{ .Values.config.deliveryPromiseUrl | quote }}
+            - name: SHOPPING_CART_URL
+              value: {{ .Values.config.shoppingCartUrl | quote }}
+            - name: CHECKOUT_URL
+              value: {{ .Values.config.checkoutUrl | quote }}
+            - name: CUSTOMER_ORDERING_URL
+              value: {{ .Values.config.customerOrderingUrl | quote }}
+            - name: PRICING_URL
+              value: {{ .Values.config.pricingUrl | quote }}
+            {{- if ne (toString .Values.config.budgetQueryMs) "" }}
+            # Per-call upstream budgets in whole milliseconds (binary defaults
+            # 2000 / 5000 / 15000).
+            - name: BUDGET_QUERY_MS
+              value: {{ .Values.config.budgetQueryMs | quote }}
+            {{- end }}
+            {{- if ne (toString .Values.config.budgetCommandMs) "" }}
+            - name: BUDGET_COMMAND_MS
+              value: {{ .Values.config.budgetCommandMs | quote }}
+            {{- end }}
+            {{- if ne (toString .Values.config.budgetConfirmMs) "" }}
+            - name: BUDGET_CONFIRM_MS
+              value: {{ .Values.config.budgetConfirmMs | quote }}
+            {{- end }}
+            {{- range .Values.extraEnv }}
+            - {{ toYaml . | nindent 14 | trim }}
+            {{- end }}
+          {{- with .Values.startupProbe }}
+          startupProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.livenessProbe }}
+          livenessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          {{- with .Values.readinessProbe }}
+          readinessProbe:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          # The service writes nothing to disk and the root filesystem is
+          # read-only; /tmp is a small scratch volume for the runtime.
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: tmp
+          emptyDir:
+            sizeLimit: 16Mi
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

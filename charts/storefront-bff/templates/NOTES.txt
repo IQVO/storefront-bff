@@ -1,0 +1,29 @@
+{{ .Chart.Name }} has been deployed.
+
+Release:   {{ .Release.Name }}
+Namespace: {{ .Release.Namespace }}
+
+Service:   {{ include "storefront-bff.fullname" . }} ({{ .Values.service.type }}, port {{ .Values.service.port }})
+
+{{- if .Values.ingress.enabled }}
+{{- range .Values.ingress.hosts }}
+Ingress:   http://{{ .host }}{{ (index .paths 0).path }}
+{{- end }}
+{{- else if .Values.gatewayApi.enabled }}
+Gateway API HTTPRoute enabled - routed via the parentRefs/hosts configured in gatewayApi.*.
+{{- else }}
+To reach it locally:
+  kubectl --namespace {{ .Release.Namespace }} port-forward svc/{{ include "storefront-bff.fullname" . }} 8080:{{ .Values.service.port }}
+  curl http://localhost:8080/healthz
+{{- end }}
+
+The storefront edge (/api/storefront) composes six upstream services over REST:
+  product-discovery  {{ .Values.config.productDiscoveryUrl }}
+  delivery-promise   {{ .Values.config.deliveryPromiseUrl }}
+  shopping-cart      {{ .Values.config.shoppingCartUrl }}
+  checkout           {{ .Values.config.checkoutUrl }}
+  customer-ordering  {{ .Values.config.customerOrderingUrl }}
+  pricing            {{ .Values.config.pricingUrl }}
+
+Cart/session state rides in the shopper's cookie (COOKIE_SECURE={{ .Values.config.cookieSecure }}).
+No database, no Kafka.
