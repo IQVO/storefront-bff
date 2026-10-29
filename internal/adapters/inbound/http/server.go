@@ -1,6 +1,12 @@
 package http
 
 import (
+	"github.com/go-chi/chi/v5/middleware"
+	"github.com/riandyrn/otelchi"
+	otelchimetric "github.com/riandyrn/otelchi/metric"
+
+	"github.com/IQVO/storefront-bff/internal/adapters/inbound/requestlog"
+
 	"io"
 	"log/slog"
 	"net/http"
@@ -18,22 +24,38 @@ const BasePath = "/api/storefront"
 
 // Server serves the storefront edge.
 type Server struct {
-	g      *usecases.Gateway
-	log    *slog.Logger
-	secure bool
+	g           *usecases.Gateway
+	log         *slog.Logger
+	secure      bool
+	serviceName string
 }
 
 // NewServer builds the edge. secure sets the Secure attribute of the cookie.
-func NewServer(g *usecases.Gateway, log *slog.Logger, secure bool) *Server {
-	return &Server{g: g, log: log, secure: secure}
+func NewServer(g *usecases.Gateway, log *slog.Logger, secure bool, serviceName string) *Server {
+	if serviceName == "" {
+		serviceName = "storefront-bff"
+	}
+	return &Server{g: g, log: log, secure: secure, serviceName: serviceName}
 }
 
 // Handler returns the full router, including /healthz and /readyz.
 func (s *Server) Handler() http.Handler { return stripBase(s.router()) }
 
 func (s *Server) router() chi.Router {
+	// The middleware order is the fleet observability standard: RequestID,
+	// otelchi (a server span named after the route pattern), the
+	// request-duration histogram, RequestLogger, Recoverer. telemetry.Setup
+	// runs before this call (otelchimetric binds the global MeterProvider at
+	// construction). rejectNUL stays after these, as before.
 	r := chi.NewRouter()
-	r.Use(recoverPanic(s.log), accessLog(s.log), rejectNUL)
+	r.Use(middleware.RequestID)
+	r.Use(otelchi.Middleware(s.serviceName, otelchi.WithChiRoutes(r)))
+	r.Use(otelchimetric.NewServerRequestDuration(otelchimetric.NewBaseConfig(s.serviceName)))
+	r.Use(requestlog.RequestLogger(s.log))
+	// recoverPanic stays instead of chi's Recoverer: it preserves the
+	// problem+json 500 contract the contract tests pin.
+	r.Use(recoverPanic(s.log))
+	r.Use(rejectNUL)
 	r.Get("/healthz", ok)
 	r.Get("/readyz", ok)
 	s.catalogRoutes(r)

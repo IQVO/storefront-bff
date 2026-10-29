@@ -55,7 +55,7 @@ func newRig() *rig {
 	logs := &bytes.Buffer{}
 	log := slog.New(slog.NewTextHandler(logs, nil))
 	g := usecases.NewGateway(up, composition.DefaultBudgets(), func() time.Time { return time.Date(2026, 10, 26, 0, 0, 0, 0, time.UTC) })
-	srv := NewServer(g, log, true)
+	srv := NewServer(g, log, true, "")
 	return &rig{server: srv, up: up, logs: logs, h: srv.Handler()}
 }
 
