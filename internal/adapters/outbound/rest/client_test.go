@@ -10,6 +10,11 @@ import (
 	"testing"
 	"time"
 
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/propagation"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	"go.opentelemetry.io/otel/sdk/trace/tracetest"
+
 	"github.com/IQVO/storefront-bff/internal/domain/composition"
 )
 
@@ -125,5 +130,53 @@ func TestDoUnknownServiceAndBadMethod(t *testing.T) {
 	}
 	if _, err := c.Do(context.Background(), composition.Call{Service: composition.Checkout, Method: "BAD METHOD", Path: "/"}); err == nil {
 		t.Error("a malformed method must fail")
+	}
+}
+
+// TestDoPropagatesTraceContext proves the otelhttp transport: an upstream call
+// made with a span-carrying context sends that span's traceparent header, so
+// the storefront services' server spans join the shopper's trace (ADR 0003).
+func TestDoPropagatesTraceContext(t *testing.T) {
+	var gotTraceparent string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotTraceparent = r.Header.Get("traceparent")
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	c, err := New(bases(srv.URL))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// The composition root always runs telemetry.Setup before serving; its
+	// global W3C TraceContext propagator is what otelhttp reads. The test
+	// sets the same propagator directly.
+	otel.SetTextMapPropagator(propagation.TraceContext{})
+	exp := tracetest.NewSpanRecorder()
+	tp := sdktrace.NewTracerProvider(sdktrace.WithSpanProcessor(exp))
+	defer tp.Shutdown(context.Background())
+	ctx, span := tp.Tracer("test").Start(context.Background(), "edge request")
+	defer span.End()
+
+	if _, err := c.Do(ctx, composition.Call{Service: composition.ProductDiscovery, Method: "GET", Path: "/products"}); err != nil {
+		t.Fatal(err)
+	}
+	// The header names the otelhttp CLIENT span of this call (a child of the
+	// edge request span), so the trace id must match and the span id must be
+	// the recorded client span's, not the parent's.
+	sc := span.SpanContext()
+	parts := strings.Split(gotTraceparent, "-")
+	if len(parts) != 4 || parts[1] != sc.TraceID().String() {
+		t.Fatalf("traceparent = %q, want the trace id %s", gotTraceparent, sc.TraceID())
+	}
+	var clientSpanID string
+	for _, s := range exp.Ended() {
+		if s.Name() == srv.URL+"/products" || len(exp.Ended()) == 1 {
+			clientSpanID = s.SpanContext().SpanID().String()
+		}
+	}
+	if clientSpanID == "" || parts[2] != clientSpanID {
+		t.Fatalf("traceparent = %q names no recorded client span (%q)", gotTraceparent, clientSpanID)
 	}
 }

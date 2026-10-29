@@ -12,6 +12,8 @@ import (
 	"net/url"
 	"time"
 
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
+
 	"github.com/IQVO/storefront-bff/internal/domain/composition"
 )
 
@@ -37,13 +39,17 @@ func New(bases map[composition.Service]string) (*Client, error) {
 		}
 		parsed[s] = u
 	}
+	// otelhttp wraps the transport so every upstream call starts a client
+	// span parented to the incoming request's server span and carries its
+	// traceparent header: the storefront services' consumers then see one
+	// trace across the BFF hop. It never reads or logs bodies.
 	hc := &http.Client{
-		Transport: &http.Transport{
+		Transport: otelhttp.NewTransport(&http.Transport{
 			Proxy:                 http.ProxyFromEnvironment,
 			MaxIdleConnsPerHost:   32,
 			IdleConnTimeout:       90 * time.Second,
 			ResponseHeaderTimeout: 0,
-		},
+		}),
 		CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
 	}
 	return &Client{bases: parsed, http: hc}, nil

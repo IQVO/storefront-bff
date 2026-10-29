@@ -21,7 +21,7 @@ for u in "${upstreams[@]}"; do base+=(--set "config.${u%%:*}=${u#*:}"); done
 # Every optional value set, so every env var cmd/api can read is rendered.
 everything=(--set config.cookieSecure=true --set config.budgetQueryMs=3000
   --set config.budgetCommandMs=6000 --set config.budgetConfirmMs=20000
-  --set config.shutdownDrainDelay=5s
+  --set config.shutdownDrainDelay=5s --set config.logLevel=debug
   --set autoscaling.api.enabled=true --set ingress.enabled=true --set gatewayApi.enabled=true)
 
 fail() { echo "FAIL: $*" >&2; exit 1; }
@@ -75,6 +75,7 @@ full_deployment="$(helm template "$release" "$chart_dir" "${base[@]}" "${everyth
 for var in "${api_vars[@]}" PORT COOKIE_SECURE PRODUCT_DISCOVERY_URL DELIVERY_PROMISE_URL \
   SHOPPING_CART_URL CHECKOUT_URL CUSTOMER_ORDERING_URL PRICING_URL \
   BUDGET_QUERY_MS BUDGET_COMMAND_MS BUDGET_CONFIRM_MS; do
+  # (OTEL_* / SERVICE_VERSION / ENVIRONMENT render from the otel block below.)
   grep -q "name: $var\$" <<<"$full_deployment" || fail "the api Deployment does not render $var, which cmd/api reads"
 done
 
@@ -100,6 +101,14 @@ for kv in 'PRODUCT_DISCOVERY_URL=http://product-discovery.example.invalid' \
   grep -q "^  ${kv%%=*}: \"${kv#*=}\"" <<<"$configmap" || fail "the ConfigMap does not carry $kv"
 done
 [[ "$(env_value "$api_deployment" PORT)" == "8080" ]] || fail "PORT is not rendered from config.port"
+# The observability contract renders from the otel block.
+[[ "$(env_value "$full_deployment" "OTEL_EXPORTER_OTLP_ENDPOINT")" == "otel-collector.observability.svc.cluster.local:4317" ]] \
+  || fail "OTEL_EXPORTER_OTLP_ENDPOINT is not rendered from otel.endpoint"
+[[ "$(env_value "$full_deployment" "OTEL_SERVICE_NAME")" == "storefront-bff" ]] \
+  || fail "OTEL_SERVICE_NAME is not rendered from otel.serviceName"
+[[ -n "$(env_value "$full_deployment" "SERVICE_VERSION")" ]] || fail "SERVICE_VERSION must render (image tag or appVersion)"
+[[ -n "$(env_value "$full_deployment" "ENVIRONMENT")" ]] || fail "ENVIRONMENT must render from .Values.environment"
+[[ "$(env_value "$full_deployment" "LOG_LEVEL")" == "debug" ]] || fail "LOG_LEVEL is not rendered from config.logLevel"
 [[ "$(env_value "$api_deployment" COOKIE_SECURE)" == "false" ]] || fail "COOKIE_SECURE must default to false in the chart"
 
 # Pod hardening, probes, the image tag and shutdown room.
