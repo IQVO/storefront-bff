@@ -1,0 +1,152 @@
+# Default values for storefront-bff. One component: the api Deployment
+# (cmd/api: the storefront edge /api/storefront, a stateless backend-for-frontend
+# whose cart/session state rides in the shopper's cookie). The chart refuses to
+# render without the mandatory values below (named in the failure): the six
+# config.*Url base URLs of the sibling services it composes.
+
+replicaCount: 1
+
+# The image is built from this repository's Dockerfile (ENTRYPOINT ./api,
+# user 1000, port 8080, root filesystem never written).
+image:
+  repository: warehouse/storefront-bff
+  pullPolicy: IfNotPresent
+  # Empty = "v" + the chart's appVersion (the release job tags the image v<version>).
+  tag: ""
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+podAnnotations: {}
+podLabels: {}
+
+# The image runs as uid/gid 1000 (Dockerfile USER 1000).
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+  seccompProfile:
+    type: RuntimeDefault
+
+securityContext:
+  runAsNonRoot: true
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop: ["ALL"]
+  seccompProfile:
+    type: RuntimeDefault
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 8080
+
+# Optional exposure, default off. Both route to the api Service only. The
+# storefront edge answers with or without the /api/storefront prefix (the
+# binary strips it), so a path-rewriting route needs no extra config.
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  hosts:
+    - host: storefront-bff.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+
+gatewayApi:
+  enabled: false
+  parentRefs:
+    - name: ""
+      namespace: ""
+      sectionName: "http"
+  hosts:
+    - path: /api/storefront
+      pathType: PathPrefix
+  stripPath: true
+
+resources:
+  limits:
+    cpu: 500m
+    memory: 256Mi
+  requests:
+    cpu: 100m
+    memory: 128Mi
+
+# HorizontalPodAutoscaler (autoscaling/v2), default off. When enabled the
+# Deployment omits replicas so the HPA owns them. N>1 is safe: the BFF keeps
+# no local state (cart/session state is encoded in the shopper's cookie, every
+# upstream call is a plain REST read or an idempotency-keyed command); it has
+# not been load-tested.
+autoscaling:
+  api:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 4
+    targetCPUUtilizationPercentage: 70
+
+# Environment read by cmd/api (internal/config/config.go, cmd/api/main.go).
+# Every key maps 1:1 to one variable; nothing else is rendered.
+config:
+  port: "8080"                        # PORT (must equal service.targetPort)
+  # COOKIE_SECURE: Secure attribute on the state cookie. The binary defaults to
+  # true; the chart defaults to false because the kind cluster serves plain
+  # HTTP. Set true behind TLS (production).
+  cookieSecure: false
+  # The six sibling services the edge composes, each the base URL of one REST
+  # dependency. ALL REQUIRED: cmd/api exits at boot naming every missing one.
+  productDiscoveryUrl: ""             # PRODUCT_DISCOVERY_URL
+  deliveryPromiseUrl: ""              # DELIVERY_PROMISE_URL
+  shoppingCartUrl: ""                 # SHOPPING_CART_URL
+  checkoutUrl: ""                     # CHECKOUT_URL
+  customerOrderingUrl: ""             # CUSTOMER_ORDERING_URL
+  pricingUrl: ""                      # PRICING_URL
+  # Per-call upstream budgets in whole milliseconds (BUDGET_QUERY_MS,
+  # BUDGET_COMMAND_MS, BUDGET_CONFIRM_MS). Empty = not rendered; the binary
+  # defaults to 2000 / 5000 / 15000.
+  budgetQueryMs: ""
+  budgetCommandMs: ""
+  budgetConfirmMs: ""
+  # NOT an env var: the binary reads no SHUTDOWN_DRAIN_DELAY. This value only
+  # sizes the pod grace period below (endpoint-removal headroom before the
+  # listener closes). Whole seconds ("5s"), minutes ("1m") or "0".
+  shutdownDrainDelay: ""
+
+# Extra env vars appended to the api container as a raw list. The chart refuses
+# any *_MODE variable (this service has no modes at all) and any variable the
+# chart renders itself (the same variable is never set twice).
+extraEnv: []
+
+livenessProbe:
+  httpGet:
+    path: /healthz
+    port: http
+  initialDelaySeconds: 5
+  periodSeconds: 10
+
+readinessProbe:
+  httpGet:
+    path: /readyz
+    port: http
+  initialDelaySeconds: 3
+  periodSeconds: 5
+
+# Room for the binary's graceful shutdown (cmd/api/main.go): on SIGTERM the
+# listener closes and in-flight requests get up to 20s (the srv.Shutdown
+# timeout), plus config.shutdownDrainDelay of endpoint-removal headroom. The
+# chart refuses a grace period that does not exceed that sum (a shorter one
+# SIGKILLs a request mid-flight, and the shopper's action is lost).
+terminationGracePeriodSeconds: 30
+
+nodeSelector: {}
+tolerations: []
+affinity: {}

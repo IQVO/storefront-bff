@@ -204,8 +204,8 @@ jobs:
         run: npm install -g @stoplight/spectral-cli
       - name: Lint OpenAPI spec
         run: spectral lint apis/openapi.yaml --ruleset .spectral.yaml --fail-severity=warn
-      - name: Lint AsyncAPI spec
-        run: spectral lint apis/asyncapi.yaml --ruleset .spectral.asyncapi.yaml --fail-severity=warn
+      # No AsyncAPI step: this edge service publishes/consumes no events by design
+      # (precedent: warehouse-ops-agent drops the api-lint job entirely).
 
   # Supply-chain sensor: known CVEs in the dependency graph and in the Go
   # stdlib version this module builds against.
@@ -224,6 +224,35 @@ jobs:
         run: go install golang.org/x/vuln/cmd/govulncheck@latest
       - name: govulncheck
         run: govulncheck ./...
+
+  # ct lint compares against the PR target branch, so that step is PR-only;
+  # the plain `helm lint` standalone renders run on every push and PR.
+  # ============================================================
+  # CLASSIFICATION: PACKAGING (Helm chart lint)
+  # ============================================================
+  helm-lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 0
+      - uses: azure/setup-helm@9bc31f4ebc9c6b171d7bfbaa5d006ae7abdb4310 # v5
+        with:
+          version: v3.16.4
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: "3.x"
+          check-latest: true
+      - uses: helm/chart-testing-action@720270857a28afd41e2426521a7801db09e9b510 # v2.9.0
+      - name: Run chart-testing (lint)
+        if: github.event_name == 'pull_request'
+        run: ct lint --charts charts/storefront-bff --validate-maintainers=false --check-version-increment=false
+      - name: helm lint with each ci values file (standalone renders)
+        run: |
+          set -euo pipefail
+          helm lint charts/storefront-bff -f charts/storefront-bff/ci/default-values.yaml
+          helm lint charts/storefront-bff -f charts/storefront-bff/ci/all-components-values.yaml
 
   # ============================================================
   # CLASSIFICATION: PACKAGING (Helm chart tests)

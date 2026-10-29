@@ -8,8 +8,11 @@ Status: under construction. The design lives in [warehouse-docs](https://iqvo.gi
 This repository is part of the storefront domain: it consumes the retail network's Open Host Service routes and its
 published `retailnetwork.*` events; it never calls an in-org or restricted network route.
 
-Runtime: Go, hexagonal, real PostgreSQL and Kafka only (`DATABASE_URL`, `KAFKA_BROKERS` are mandatory), CloudEvents 1.0 on every message
-(`com.retailnetwork.storefront.storefront-bff.<entity>.<Event>`), transactional outbox.
+Runtime: Go, hexagonal, stateless. No database and no Kafka: the BFF composes six upstream REST APIs
+(`PRODUCT_DISCOVERY_URL`, `DELIVERY_PROMISE_URL`, `PRICING_URL`, `SHOPPING_CART_URL`, `CHECKOUT_URL`,
+`CUSTOMER_ORDERING_URL` are mandatory boot config). Optional: `PORT` (8080), `COOKIE_SECURE` (true),
+`BUDGET_QUERY_MS` / `BUDGET_COMMAND_MS` / `BUDGET_CONFIRM_MS` (2000 / 5000 / 15000). The surface is documented in
+`apis/openapi.yaml`; the design assumptions are in `docs/adr/0002-storefront-bff-assumptions.md`.
 
 ## Disclaimer
 

@@ -17,12 +17,12 @@ assert nothing.
 
 1. **Unit tests** (`go test ./...`) — prove the code runs without
    panicking and returns SOMETHING. Table-driven, in-memory adapters only
-   (`internal/adapters/outbound/memory/`), never a real network/DB call.
+   (a stub `ports.Upstream` (this service has no memory adapter)), never a real network/DB call.
 2. **Coverage** (`make coverage`, 90% gate on
    `./internal/domain/...,./internal/application/...`) — proves lines
    executed. Proves nothing about whether the test asserted the right
    thing.
-3. **Mutation testing** (`make mutation-fast`, gremlins) — proves the
+3. **Mutation testing** (`make mutation`, gremlins) — proves the
    tests actually ASSERT, not merely execute. A mutant is a deliberately
    broken version of the code (`<` -> `<=`, `+` -> `-`, etc.); if the test
    suite still passes against the mutant, it "survived" (LIVED) — meaning
@@ -104,7 +104,7 @@ test per technology enforces it (`TestKafkaIntegrationTestsUseTestcontainers`,
 `TestPostgresIntegrationTestsUseTestcontainers`). Share one container per
 package through a helper (e.g. an `outboxDB(t)` that runs
 `tcpostgres.Run` -> `ConnectionString` -> migrate -> pool -> `t.Cleanup`). See
-`internal/adapters/outbound/facilitycache/consumer_integration_test.go`
+a sibling consumer integration test
 for the working recipe (unique topic per test, one shared container per
 package, explicit `CreateTopics` + poll for the partition leader before
 the first read/write).

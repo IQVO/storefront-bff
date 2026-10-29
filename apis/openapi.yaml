@@ -1,0 +1,575 @@
+openapi: 3.0.3
+info:
+  title: Storefront BFF API
+  version: 0.1.0
+  contact:
+    name: storefront-bff maintainers
+    url: https://github.com/IQVO/storefront-bff
+  description: >-
+    The only storefront edge (/api/storefront). A backend-for-frontend that
+    composes the storefront contexts (product-discovery, shopping-cart,
+    checkout, customer-ordering, pricing) and the network's delivery-promise
+    quote. It has no domain model, no database and no Kafka. Each route is a
+    thin composition over an upstream REST API; upstream answers, including
+    their RFC 9457 problem details, are relayed unchanged. The BFF mints an
+    Idempotency-Key per user action (deterministic per route, subject and
+    payload inside a ten minute window, or pinned by the page with the
+    X-Action-Id header) and forwards it to upstream commands. Cart, shopper and
+    last checkout ids live in the sf_state cookie: state, NOT authentication,
+    and there is no authentication anywhere. Saved addresses pass through
+    without being stored or logged, request and response bodies are never
+    logged, and only PSP payment-method tokens are accepted, never card data.
+    Every route has a time budget (2 s queries, 5 s commands, 15 s checkout
+    confirm); an expired budget answers 504 and is never retried.
+servers:
+  - url: /api/storefront
+tags:
+  - name: Catalog
+    description: Product search, product page and delivery dates (product-discovery, delivery-promise, pricing).
+  - name: Carts
+    description: Cart lines, destination and delivery selection (shopping-cart).
+  - name: Checkout
+    description: The purchase saga (checkout).
+  - name: Orders
+    description: Order history, tracking and cancellation (customer-ordering, joined with checkout totals).
+  - name: Account
+    description: Shopper registration, e-mail lookup and saved addresses (customer-ordering).
+paths:
+  /products:
+    get:
+      tags: [Catalog]
+      operationId: searchProducts
+      summary: Search products
+      description: Relays product-discovery GET /products with the search filters q, categoryId, inStock, priceMin, priceMax, sort, after and limit; other parameters are dropped.
+      parameters:
+        - {name: q, in: query, required: false, schema: {type: string}}
+        - {name: categoryId, in: query, required: false, schema: {type: string}}
+        - {name: inStock, in: query, required: false, schema: {type: boolean}}
+        - {name: priceMin, in: query, required: false, schema: {type: integer, format: int64, minimum: 0}}
+        - {name: priceMax, in: query, required: false, schema: {type: integer, format: int64, minimum: 0}}
+        - {name: sort, in: query, required: false, schema: {type: string, enum: [relevance, price-asc, price-desc, title]}}
+        - {name: after, in: query, required: false, schema: {type: string}}
+        - {name: limit, in: query, required: false, schema: {type: integer, minimum: 1, maximum: 100}}
+      responses:
+        '200': {$ref: '#/components/responses/Json'}
+        '422': {$ref: '#/components/responses/Problem'}
+        '503': {$ref: '#/components/responses/Problem'}
+        '504': {$ref: '#/components/responses/Problem'}
+  /products/{id}:
+    get:
+      tags: [Catalog]
+      operationId: getProduct
+      summary: Get one product view
+      description: Relays product-discovery GET /products/{catalogItemId}, the full ProductView for the product page.
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200': {$ref: '#/components/responses/Json'}
+        '404': {$ref: '#/components/responses/Problem'}
+        '503': {$ref: '#/components/responses/Problem'}
+        '504': {$ref: '#/components/responses/Problem'}
+  /products/{id}:delivery-dates:
+    post:
+      tags: [Catalog]
+      operationId: quoteProductDeliveryDates
+      summary: Delivery dates and charges for one unit of a product
+      description: >-
+        Called by the browser after the product page rendered. Quotes one line
+        (quantity 1) with delivery-promise POST /delivery-offers:quote for the
+        postal prefix and joins the per-tier delivery charge from the current
+        pricing charge schedule. A missing charge schedule only leaves the
+        charge out. On a timeout the page keeps its enter-a-postal-code text.
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/DeliveryDatesRequest'}
+      responses:
+        '200':
+          description: One entry per quoted tier, plus the tiers the network cannot serve.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/DeliveryDates'}
+        '422': {$ref: '#/components/responses/Problem'}
+        '503': {$ref: '#/components/responses/Problem'}
+        '504': {$ref: '#/components/responses/Problem'}
+  /carts:
+    post:
+      tags: [Carts]
+      operationId: createCart
+      summary: Create a cart
+      description: Relays shopping-cart POST /carts and stores the new cart id in the sf_state cookie. An empty body adopts the cookie's shopper.
+      parameters:
+        - $ref: '#/components/parameters/ActionId'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/Passthrough'}
+      responses:
+        '201':
+          description: The created cart; sets the sf_state cookie.
+          headers: {Set-Cookie: {$ref: '#/components/headers/SetCookie'}}
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Passthrough'}
+        '422': {$ref: '#/components/responses/Problem'}
+        '503': {$ref: '#/components/responses/Problem'}
+        '504': {$ref: '#/components/responses/Problem'}
+    get:
+      tags: [Carts]
+      operationId: listCarts
+      summary: List carts of a shopper
+      description: Relays shopping-cart GET /carts. The shopper defaults to the cookie's.
+      parameters:
+        - {name: shopperId, in: query, required: false, schema: {type: string}}
+        - {name: state, in: query, required: false, schema: {type: string}}
+      responses:
+        '200': {$ref: '#/components/responses/Json'}
+        '422': {$ref: '#/components/responses/Problem'}
+        '503': {$ref: '#/components/responses/Problem'}
+        '504': {$ref: '#/components/responses/Problem'}
+  /carts/{id}:
+    get:
+      tags: [Carts]
+      operationId: getCart
+      summary: Get a cart
+      description: Relays shopping-cart GET /carts/{cartId} with its quote, selections and estimate.
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200': {$ref: '#/components/responses/Json'}
+        '404': {$ref: '#/components/responses/Problem'}
+        '503': {$ref: '#/components/responses/Problem'}
+        '504': {$ref: '#/components/responses/Problem'}
+  /carts/{id}/lines:
+    post:
+      tags: [Carts]
+      operationId: addCartLine
+      summary: Add a line to the cart
+      description: Relays shopping-cart POST /carts/{cartId}/lines with a minted Idempotency-Key.
+      parameters:
+        - $ref: '#/components/parameters/Id'
+        - $ref: '#/components/parameters/ActionId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/Passthrough'}
+      responses:
+        '200': {$ref: '#/components/responses/Json'}
+        '404': {$ref: '#/components/responses/Problem'}
+        '409': {$ref: '#/components/responses/Problem'}
+        '422': {$ref: '#/components/responses/Problem'}
+        '503': {$ref: '#/components/responses/Problem'}
+        '504': {$ref: '#/components/responses/Problem'}
+  /carts/{id}/lines/{item}:
+    patch:
+      tags: [Carts]
+      operationId: setCartLineQuantity
+      summary: Change the quantity of a cart line
+      description: Relays shopping-cart POST /carts/{cartId}/lines/{catalogItemId}:set-quantity.
+      parameters:
+        - $ref: '#/components/parameters/Id'
+        - $ref: '#/components/parameters/Item'
+        - $ref: '#/components/parameters/ActionId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/Passthrough'}
+      responses:
+        '200': {$ref: '#/components/responses/Json'}
+        '404': {$ref: '#/components/responses/Problem'}
+        '409': {$ref: '#/components/responses/Problem'}
+        '422': {$ref: '#/components/responses/Problem'}
+        '503': {$ref: '#/components/responses/Problem'}
+        '504': {$ref: '#/components/responses/Problem'}
+    delete:
+      tags: [Carts]
+      operationId: removeCartLine
+      summary: Remove a cart line
+      description: Relays shopping-cart POST /carts/{cartId}/lines/{catalogItemId}:remove.
+      parameters:
+        - $ref: '#/components/parameters/Id'
+        - $ref: '#/components/parameters/Item'
+        - $ref: '#/components/parameters/ActionId'
+      responses:
+        '200': {$ref: '#/components/responses/Json'}
+        '404': {$ref: '#/components/responses/Problem'}
+        '409': {$ref: '#/components/responses/Problem'}
+        '503': {$ref: '#/components/responses/Problem'}
+        '504': {$ref: '#/components/responses/Problem'}
+  /carts/{id}/destination:
+    post:
+      tags: [Carts]
+      operationId: setCartDestination
+      summary: Set the destination postal prefix
+      description: Relays shopping-cart POST /carts/{cartId}:set-destination. Clears the current delivery quote.
+      parameters:
+        - $ref: '#/components/parameters/Id'
+        - $ref: '#/components/parameters/ActionId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/Passthrough'}
+      responses:
+        '200': {$ref: '#/components/responses/Json'}
+        '404': {$ref: '#/components/responses/Problem'}
+        '409': {$ref: '#/components/responses/Problem'}
+        '422': {$ref: '#/components/responses/Problem'}
+        '503': {$ref: '#/components/responses/Problem'}
+        '504': {$ref: '#/components/responses/Problem'}
+  /carts/{id}/delivery:quote:
+    post:
+      tags: [Carts]
+      operationId: quoteCartDelivery
+      summary: Quote delivery offers for the cart
+      description: Relays shopping-cart POST /carts/{cartId}:quote-delivery, which calls delivery-promise synchronously (command budget).
+      parameters:
+        - $ref: '#/components/parameters/Id'
+        - $ref: '#/components/parameters/ActionId'
+      responses:
+        '200': {$ref: '#/components/responses/Json'}
+        '404': {$ref: '#/components/responses/Problem'}
+        '409': {$ref: '#/components/responses/Problem'}
+        '422': {$ref: '#/components/responses/Problem'}
+        '503': {$ref: '#/components/responses/Problem'}
+        '504': {$ref: '#/components/responses/Problem'}
+  /carts/{id}/delivery:select:
+    post:
+      tags: [Carts]
+      operationId: selectCartDelivery
+      summary: Select a delivery offer for a shipment group
+      description: Relays shopping-cart POST /carts/{cartId}:select-delivery.
+      parameters:
+        - $ref: '#/components/parameters/Id'
+        - $ref: '#/components/parameters/ActionId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/Passthrough'}
+      responses:
+        '200': {$ref: '#/components/responses/Json'}
+        '404': {$ref: '#/components/responses/Problem'}
+        '409': {$ref: '#/components/responses/Problem'}
+        '422': {$ref: '#/components/responses/Problem'}
+        '503': {$ref: '#/components/responses/Problem'}
+        '504': {$ref: '#/components/responses/Problem'}
+  /checkout:
+    post:
+      tags: [Checkout]
+      operationId: openCheckout
+      summary: Open a checkout session for the cart
+      description: >-
+        Relays checkout POST /checkout-sessions. The cart (default: the
+        cookie's) and the shopper (the cookie's, required) are filled in; the
+        saved address is only a shipToAddressId. Stores the session id in the
+        sf_state cookie.
+      parameters:
+        - $ref: '#/components/parameters/ActionId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/OpenCheckoutRequest'}
+      responses:
+        '201':
+          description: The opened session; sets the sf_state cookie.
+          headers: {Set-Cookie: {$ref: '#/components/headers/SetCookie'}}
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Passthrough'}
+        '409': {$ref: '#/components/responses/Problem'}
+        '422': {$ref: '#/components/responses/Problem'}
+        '503': {$ref: '#/components/responses/Problem'}
+        '504': {$ref: '#/components/responses/Problem'}
+  /checkout/{id}:
+    get:
+      tags: [Checkout]
+      operationId: getCheckout
+      summary: Get a checkout session
+      description: Relays checkout GET /checkout-sessions/{sessionId}. The page polls it while a placement is in doubt (202 from confirm).
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200': {$ref: '#/components/responses/Json'}
+        '404': {$ref: '#/components/responses/Problem'}
+        '503': {$ref: '#/components/responses/Problem'}
+        '504': {$ref: '#/components/responses/Problem'}
+  /checkout/{id}:confirm:
+    post:
+      tags: [Checkout]
+      operationId: confirmCheckout
+      summary: Confirm the session with a payment method token
+      description: >-
+        Relays checkout POST /checkout-sessions/{sessionId}:confirm with the
+        PSP token (never a card number: card-shaped fields and a token that is
+        a card number are refused with 422 before any upstream call). Uses the
+        long confirm budget. 200 carries a definitive session, 202 an
+        in-doubt placement to poll.
+      parameters:
+        - $ref: '#/components/parameters/Id'
+        - $ref: '#/components/parameters/ActionId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/ConfirmCheckoutRequest'}
+      responses:
+        '200': {$ref: '#/components/responses/Json'}
+        '202': {$ref: '#/components/responses/Json'}
+        '404': {$ref: '#/components/responses/Problem'}
+        '409': {$ref: '#/components/responses/Problem'}
+        '422': {$ref: '#/components/responses/Problem'}
+        '503': {$ref: '#/components/responses/Problem'}
+        '504': {$ref: '#/components/responses/Problem'}
+  /orders:
+    get:
+      tags: [Orders]
+      operationId: listOrders
+      summary: List the shopper's orders
+      description: Relays customer-ordering GET /orders. The shopper defaults to the cookie's; without either the answer is 422 session-required.
+      parameters:
+        - {name: shopperId, in: query, required: false, schema: {type: string}}
+        - {name: after, in: query, required: false, schema: {type: string}}
+        - {name: limit, in: query, required: false, schema: {type: integer, minimum: 1, maximum: 100}}
+      responses:
+        '200': {$ref: '#/components/responses/Json'}
+        '404': {$ref: '#/components/responses/Problem'}
+        '422': {$ref: '#/components/responses/Problem'}
+        '503': {$ref: '#/components/responses/Problem'}
+        '504': {$ref: '#/components/responses/Problem'}
+  /orders/{id}:
+    get:
+      tags: [Orders]
+      operationId: getOrder
+      summary: Get an order with tracking and checkout totals
+      description: >-
+        The customer-ordering order, plus its tracking under tracking and, when
+        the cookie's last checkout placed this order, the checkout totals
+        under totals. Tracking and totals are best effort and absent when
+        their upstream fails; the order itself is required.
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200': {$ref: '#/components/responses/Json'}
+        '404': {$ref: '#/components/responses/Problem'}
+        '503': {$ref: '#/components/responses/Problem'}
+        '504': {$ref: '#/components/responses/Problem'}
+  /orders/{id}:cancel:
+    post:
+      tags: [Orders]
+      operationId: cancelOrder
+      summary: Request the cancellation of an order
+      description: Relays customer-ordering POST /orders/{orderId}:cancel. Refused upstream (409 cancel-after-lock) once a group is locked.
+      parameters:
+        - $ref: '#/components/parameters/Id'
+        - $ref: '#/components/parameters/ActionId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/CancelOrderRequest'}
+      responses:
+        '200': {$ref: '#/components/responses/Json'}
+        '404': {$ref: '#/components/responses/Problem'}
+        '409': {$ref: '#/components/responses/Problem'}
+        '422': {$ref: '#/components/responses/Problem'}
+        '503': {$ref: '#/components/responses/Problem'}
+        '504': {$ref: '#/components/responses/Problem'}
+  /shoppers:
+    post:
+      tags: [Account]
+      operationId: registerShopper
+      summary: Register a shopper
+      description: Relays customer-ordering POST /shoppers. The body, including saved addresses, passes through untouched and is never stored or logged. Stores the shopper id in the sf_state cookie.
+      parameters:
+        - $ref: '#/components/parameters/ActionId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/Passthrough'}
+      responses:
+        '201':
+          description: The registered shopper; sets the sf_state cookie.
+          headers: {Set-Cookie: {$ref: '#/components/headers/SetCookie'}}
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Passthrough'}
+        '409': {$ref: '#/components/responses/Problem'}
+        '422': {$ref: '#/components/responses/Problem'}
+        '503': {$ref: '#/components/responses/Problem'}
+        '504': {$ref: '#/components/responses/Problem'}
+  /sessions:
+    post:
+      tags: [Account]
+      operationId: createSession
+      summary: Start a session by e-mail lookup
+      description: >-
+        Looks the shopper up with customer-ordering GET /shoppers?email=.
+        There is no password and no authentication; the cookie only
+        remembers which shopper the page acts for.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/CreateSessionRequest'}
+      responses:
+        '200':
+          description: The shopper; sets the sf_state cookie.
+          headers: {Set-Cookie: {$ref: '#/components/headers/SetCookie'}}
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/Passthrough'}
+        '404': {$ref: '#/components/responses/Problem'}
+        '422': {$ref: '#/components/responses/Problem'}
+        '503': {$ref: '#/components/responses/Problem'}
+        '504': {$ref: '#/components/responses/Problem'}
+  /me:
+    get:
+      tags: [Account]
+      operationId: getMe
+      summary: Get the cookie's shopper
+      description: Relays customer-ordering GET /shoppers/{shopperId} for the shopper in the cookie; 422 session-required without one.
+      responses:
+        '200': {$ref: '#/components/responses/Json'}
+        '404': {$ref: '#/components/responses/Problem'}
+        '422': {$ref: '#/components/responses/Problem'}
+        '503': {$ref: '#/components/responses/Problem'}
+        '504': {$ref: '#/components/responses/Problem'}
+  /me/addresses:
+    post:
+      tags: [Account]
+      operationId: addMyAddress
+      summary: Save an address for the cookie's shopper
+      description: Relays customer-ordering POST /shoppers/{shopperId}/addresses. The address passes through; it is never stored or logged here.
+      parameters:
+        - $ref: '#/components/parameters/ActionId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: {$ref: '#/components/schemas/Passthrough'}
+      responses:
+        '201': {$ref: '#/components/responses/Json'}
+        '404': {$ref: '#/components/responses/Problem'}
+        '422': {$ref: '#/components/responses/Problem'}
+        '503': {$ref: '#/components/responses/Problem'}
+        '504': {$ref: '#/components/responses/Problem'}
+components:
+  parameters:
+    Id:
+      name: id
+      in: path
+      required: true
+      description: An upstream resource id (letters, digits, dot, underscore, dash; at most 128 characters).
+      schema: {type: string, minLength: 1, maxLength: 128}
+    Item:
+      name: item
+      in: path
+      required: true
+      description: A catalogue item id.
+      schema: {type: string, minLength: 1, maxLength: 128}
+    ActionId:
+      name: X-Action-Id
+      in: header
+      required: false
+      description: >-
+        Optional id the page sets per click. It pins the minted upstream
+        Idempotency-Key, so a retry of the same click is deduplicated even when
+        the payload changed. Without it the key derives from route, subject,
+        payload and a ten minute window.
+      schema: {type: string, minLength: 1, maxLength: 64}
+  headers:
+    SetCookie:
+      description: The sf_state cookie (HttpOnly, SameSite=Lax, path /api/storefront). State, not authentication.
+      schema: {type: string}
+  responses:
+    Json:
+      description: The upstream answer, relayed unchanged.
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/Passthrough'}
+    Problem:
+      description: >-
+        An RFC 9457 problem. Upstream problems are relayed unchanged; the edge
+        adds validation-failed, session-required, malformed-request,
+        payload-too-large, upstream-unavailable (503), gateway-timeout (504)
+        and internal-error.
+      content:
+        application/problem+json:
+          schema: {$ref: '#/components/schemas/Problem'}
+  schemas:
+    Passthrough:
+      type: object
+      description: A JSON document owned by the upstream contract; the BFF does not interpret it.
+      additionalProperties: true
+    Problem:
+      type: object
+      description: RFC 9457 problem details.
+      required: [type, title, status]
+      properties:
+        type: {type: string, format: uri-reference, description: 'Problem type, for example /problems/validation-failed.'}
+        title: {type: string}
+        status: {type: integer, minimum: 400, maximum: 599}
+        detail: {type: string}
+    DeliveryDatesRequest:
+      type: object
+      required: [postalPrefix]
+      properties:
+        postalPrefix:
+          type: string
+          minLength: 1
+          maxLength: 10
+          description: A postal prefix, never a full address.
+    DeliveryDates:
+      type: object
+      required: [postalPrefix, tiers, unavailable]
+      properties:
+        postalPrefix: {type: string}
+        tiers:
+          type: array
+          items:
+            type: object
+            required: [tier, deliverByEarliest, deliverByLatest]
+            properties:
+              tier: {type: string, enum: [SAME_DAY, NEXT_DAY, TWO_DAY, STANDARD]}
+              deliverByEarliest: {type: string, format: date-time}
+              deliverByLatest: {type: string, format: date-time}
+              offerExpiresAt: {type: string, format: date-time}
+              charge: {$ref: '#/components/schemas/Passthrough'}
+              freeOver: {$ref: '#/components/schemas/Passthrough'}
+        unavailable:
+          type: array
+          items: {$ref: '#/components/schemas/Passthrough'}
+    OpenCheckoutRequest:
+      type: object
+      required: [shipToAddressId]
+      additionalProperties: false
+      properties:
+        cartId: {type: string, description: "Defaults to the cookie's cart."}
+        shipToAddressId: {type: string, description: "A saved address id held by customer-ordering; never the address."}
+    ConfirmCheckoutRequest:
+      type: object
+      required: [paymentMethodToken]
+      additionalProperties: false
+      properties:
+        paymentMethodToken: {type: string, maxLength: 256, description: "The PSP token from the hosted fields; never a card number."}
+    CancelOrderRequest:
+      type: object
+      required: [reason]
+      additionalProperties: false
+      properties:
+        reason: {type: string, minLength: 1, maxLength: 200}
+    CreateSessionRequest:
+      type: object
+      required: [email]
+      additionalProperties: false
+      properties:
+        email: {type: string, format: email, maxLength: 254}

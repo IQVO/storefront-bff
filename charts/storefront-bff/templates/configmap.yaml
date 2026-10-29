@@ -1,0 +1,33 @@
+# Non-secret configuration of the api component, mirrored from the env the
+# Deployment renders and mounted into the api container with envFrom (the
+# explicit env entries win for the same key); the Deployment's checksum/config
+# annotation rolls the pods whenever any of it changes. Every key is a variable
+# cmd/api reads (internal/config/config.go; tests/render_test.sh). There are no
+# secrets in this service's config: the six upstream base URLs are plain
+# cluster addresses and the state lives in the shopper's cookie, never in a
+# database.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "storefront-bff.fullname" . }}
+  labels:
+    {{- include "storefront-bff.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api
+data:
+  PORT: {{ .Values.config.port | quote }}
+  COOKIE_SECURE: {{ .Values.config.cookieSecure | quote }}
+  PRODUCT_DISCOVERY_URL: {{ .Values.config.productDiscoveryUrl | quote }}
+  DELIVERY_PROMISE_URL: {{ .Values.config.deliveryPromiseUrl | quote }}
+  SHOPPING_CART_URL: {{ .Values.config.shoppingCartUrl | quote }}
+  CHECKOUT_URL: {{ .Values.config.checkoutUrl | quote }}
+  CUSTOMER_ORDERING_URL: {{ .Values.config.customerOrderingUrl | quote }}
+  PRICING_URL: {{ .Values.config.pricingUrl | quote }}
+  {{- if ne (toString .Values.config.budgetQueryMs) "" }}
+  BUDGET_QUERY_MS: {{ .Values.config.budgetQueryMs | quote }}
+  {{- end }}
+  {{- if ne (toString .Values.config.budgetCommandMs) "" }}
+  BUDGET_COMMAND_MS: {{ .Values.config.budgetCommandMs | quote }}
+  {{- end }}
+  {{- if ne (toString .Values.config.budgetConfirmMs) "" }}
+  BUDGET_CONFIRM_MS: {{ .Values.config.budgetConfirmMs | quote }}
+  {{- end }}
