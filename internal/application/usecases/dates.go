@@ -43,14 +43,20 @@ type quotedOffer struct {
 	Window struct {
 		Earliest string `json:"earliest"`
 		Latest   string `json:"latest"`
+		TimeZone string `json:"timeZone,omitempty"`
 	} `json:"window"`
 	ExpiresAt string `json:"expiresAt"`
 }
 
+// dateTier is one product-page tier. TimeZone is the destination's IANA zone
+// the shopper reads the window in, relayed as quoted; it is omitted when the
+// quote carries none (the web then reads the window as UTC). The BFF never
+// resolves or validates it: turning instants into dates is the page's job.
 type dateTier struct {
 	Tier      string          `json:"tier"`
 	Earliest  string          `json:"deliverByEarliest"`
 	Latest    string          `json:"deliverByLatest"`
+	TimeZone  string          `json:"timeZone,omitempty"`
 	ExpiresAt string          `json:"offerExpiresAt"`
 	Charge    json.RawMessage `json:"charge,omitempty"`
 	FreeOver  json.RawMessage `json:"freeOver,omitempty"`
@@ -72,7 +78,7 @@ func composeDates(prefix string, quote []byte, charges map[string]tierCharge) ([
 		if o.State != "QUOTED" {
 			continue
 		}
-		d := dateTier{Tier: o.Tier, Earliest: o.Window.Earliest, Latest: o.Window.Latest, ExpiresAt: o.ExpiresAt}
+		d := dateTier{Tier: o.Tier, Earliest: o.Window.Earliest, Latest: o.Window.Latest, TimeZone: o.Window.TimeZone, ExpiresAt: o.ExpiresAt}
 		if c, ok := charges[o.Tier]; ok {
 			d.Charge, d.FreeOver = c.Charge, c.FreeOver
 		}

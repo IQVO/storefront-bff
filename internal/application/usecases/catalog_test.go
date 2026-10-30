@@ -97,6 +97,38 @@ func TestDeliveryDatesComposesQuoteAndCharges(t *testing.T) {
 	}
 }
 
+// The destination zone rides on each tier as quoted; a window quoted before
+// delivery-promise carried zones has none, and the tier then omits the field.
+func TestDeliveryDatesRelaysWindowTimeZone(t *testing.T) {
+	quote := `{"offers":[
+ {"state":"QUOTED","tier":"NEXT_DAY","window":{"earliest":"2026-10-31T14:00:00Z","latest":"2026-11-01T02:00:00Z","timeZone":"America/Chicago"},"expiresAt":"2026-10-30T12:10:00Z"},
+ {"state":"QUOTED","tier":"STANDARD","window":{"earliest":"2026-11-03T00:00:00Z","latest":"2026-11-04T23:59:00Z"},"expiresAt":"2026-10-30T12:10:00Z"},
+ {"state":"EXPIRED","tier":"SAME_DAY","window":{"earliest":"a","latest":"b","timeZone":"America/Denver"},"expiresAt":"c"}],
+ "unavailable":[]}`
+	f := newFake().on("POST /delivery-offers:quote", 200, quote).on("GET /delivery-charge-schedules/current", 200, scheduleBody)
+	out, err := newGateway(f).DeliveryDates(context.Background(), "p1", []byte(`{"postalPrefix":"606"}`))
+	if err != nil || out.Reply.Status != 200 {
+		t.Fatalf("out=%+v err=%v", out, err)
+	}
+	var got struct {
+		Tiers []map[string]json.RawMessage `json:"tiers"`
+	}
+	if err := json.Unmarshal(out.Reply.Body, &got); err != nil {
+		t.Fatal(err)
+	}
+	if len(got.Tiers) != 2 {
+		t.Fatalf("tiers = %s", out.Reply.Body)
+	}
+	next, std := got.Tiers[0], got.Tiers[1]
+	if string(next["timeZone"]) != `"America/Chicago"` || string(next["deliverByEarliest"]) != `"2026-10-31T14:00:00Z"` ||
+		string(next["deliverByLatest"]) != `"2026-11-01T02:00:00Z"` {
+		t.Fatalf("zoned tier = %s", out.Reply.Body)
+	}
+	if _, ok := std["timeZone"]; ok {
+		t.Fatalf("a window without a zone must omit timeZone, got %s", out.Reply.Body)
+	}
+}
+
 func TestDeliveryDatesWithoutChargeScheduleStillRenders(t *testing.T) {
 	f := newFake().on("POST /delivery-offers:quote", 200, quoteBody).fail("GET /delivery-charge-schedules/current", errors.New("down"))
 	out, err := newGateway(f).DeliveryDates(context.Background(), "p1", []byte(`{"postalPrefix":"787"}`))
