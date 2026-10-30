@@ -53,9 +53,12 @@ ADR 0002 A2), served by the `ListCategories` use case in
 
 - The web can render department names and a navigation tree from one
   call, and keep using `categoryId` as the `GET /products` filter.
-- The BFF's surface grows by one read-only route and one allowlist entry; the
-  model doc (warehouse-docs `storefront/model/model.yaml`) lists the new route
-  and sync call so the design source stays in step.
+- The BFF's surface grows by one read-only route and one allowlist entry. The
+  model doc (warehouse-docs `storefront/model/model.yaml`) already named this
+  call — product-discovery's inbound OHS row from `storefront-bff` lists
+  `GET /categories` / `ListCategories` — so this closes a gap between the model
+  and the code rather than changing the model; warehouse-docs' copy of this
+  repo's OpenAPI is refreshed alongside.
 - Because the body is relayed unchanged, any change to product-discovery's
   CategoryView reaches the page directly; the BFF does not shield the web from
   it, as with products.
