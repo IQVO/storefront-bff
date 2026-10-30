@@ -50,6 +50,18 @@ func TestOpenCheckoutRelaysConflict(t *testing.T) {
 	}
 }
 
+// The 409 offer-not-quotable answer lists requoted offers whose windows carry
+// the destination timeZone; the problem is relayed byte for byte.
+func TestOpenCheckoutRelaysRequotedOfferTimeZone(t *testing.T) {
+	problem := `{"type":"/problems/offer-not-quotable","title":"Offer not quotable","status":409,` +
+		`"requotedOffers":[{"groupNo":1,"tier":"NEXT_DAY","window":{"earliest":"2026-10-31T14:00:00Z","latest":"2026-11-01T02:00:00Z","timeZone":"America/Chicago"},"timeZone":"America/Chicago"}]}`
+	f := newFake().on("POST /checkout-sessions", 409, problem)
+	out, err := newGateway(f).OpenCheckout(context.Background(), shopperActor, []byte(`{"shipToAddressId":"a1"}`))
+	if err != nil || out.Reply.Status != 409 || string(out.Reply.Body) != problem {
+		t.Fatalf("relayed = %s err=%v", out.Reply.Body, err)
+	}
+}
+
 func TestConfirmCheckoutUsesConfirmBudgetAndKeepsBody(t *testing.T) {
 	f := newFake().on("POST /checkout-sessions/k1:confirm", 202, `{"state":"PLACING"}`)
 	body := []byte(`{"paymentMethodToken":"tok_abc"}`)
