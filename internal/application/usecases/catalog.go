@@ -26,6 +26,16 @@ func (g *Gateway) SearchProducts(ctx context.Context, q url.Values) (Outcome, er
 	})
 }
 
+// ListCategories relays GET /categories to product-discovery: the category
+// tree (id, parent, name, path) with purchasable counts, relayed unchanged.
+// The upstream takes no parameters, so nothing from the query string is
+// forwarded.
+func (g *Gateway) ListCategories(ctx context.Context) (Outcome, error) {
+	return g.relay(ctx, composition.Query, Actor{}, composition.Call{
+		Service: composition.ProductDiscovery, Method: "GET", Path: "/categories",
+	})
+}
+
 // GetProduct relays GET /products/{id} to product-discovery.
 func (g *Gateway) GetProduct(ctx context.Context, id string) (Outcome, error) {
 	if !composition.ValidID(id) {

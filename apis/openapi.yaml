@@ -25,7 +25,7 @@ servers:
   - url: /api/storefront
 tags:
   - name: Catalog
-    description: Product search, product page and delivery dates (product-discovery, delivery-promise, pricing).
+    description: Product search, category tree, product page and delivery dates (product-discovery, delivery-promise, pricing).
   - name: Carts
     description: Cart lines, destination and delivery selection (shopping-cart).
   - name: Checkout
@@ -53,6 +53,21 @@ paths:
       responses:
         '200': {$ref: '#/components/responses/Json'}
         '422': {$ref: '#/components/responses/Problem'}
+        '503': {$ref: '#/components/responses/Problem'}
+        '504': {$ref: '#/components/responses/Problem'}
+  /categories:
+    get:
+      tags: [Catalog]
+      operationId: listCategories
+      summary: Get the category tree for department navigation
+      description: >-
+        Relays product-discovery GET /categories unchanged: the category tree
+        with purchasable counts, shaped {version, categories: [{categoryId,
+        parentId (null on a root), name, path, purchasableCount}]}. It takes
+        no parameters; anything in the query string is dropped. The page uses
+        it to show department names for the categoryId filter of GET /products.
+      responses:
+        '200': {$ref: '#/components/responses/Json'}
         '503': {$ref: '#/components/responses/Problem'}
         '504': {$ref: '#/components/responses/Problem'}
   /products/{id}:

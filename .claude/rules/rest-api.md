@@ -12,6 +12,7 @@ wire). `apis/openapi.yaml` documents it; `TestRoutesMatchOpenAPI` fails when
 router and spec differ. Route -> use case -> upstream call:
 
 - `GET /products` -> `SearchProducts` -> product-discovery `GET /products`
+- `GET /categories` -> `ListCategories` -> product-discovery `GET /categories` (tree + purchasable counts, relayed unchanged)
 - `GET /products/{id}` -> `GetProduct` -> `GET /products/{id}`
 - `POST /products/{id}:delivery-dates` -> `DeliveryDates` -> delivery-promise `POST /delivery-offers:quote` + pricing `GET /delivery-charge-schedules/current`
 - `POST /carts` -> `CreateCart`; `GET /carts` -> `ListCarts`; `GET /carts/{id}` -> `GetCart`

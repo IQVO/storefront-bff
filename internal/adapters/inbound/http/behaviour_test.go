@@ -27,6 +27,23 @@ func TestCreateCartSetsStateCookie(t *testing.T) {
 	}
 }
 
+func TestCategoriesRelayTheUpstreamTreeUnchanged(t *testing.T) {
+	g := newRig()
+	tree := `{"version":2,"categories":[{"categoryId":"home","name":"Home","path":"Home","purchasableCount":3},{"categoryId":"lamps","parentId":"home","name":"Lamps","path":"Home/Lamps","purchasableCount":1}]}`
+	g.up.replies["GET /categories"] = reply(200, tree)
+	rec := g.do("GET", BasePath+"/categories?evil=1", "", "")
+	if rec.Code != 200 || rec.Body.String() != tree || rec.Header().Get("Content-Type") != "application/json" {
+		t.Fatalf("%d %v %s", rec.Code, rec.Header(), rec.Body)
+	}
+	if got := g.up.last(); got.Path != "/categories" || len(got.Query) != 0 || got.IdempotencyKey != "" {
+		t.Fatalf("upstream call = %+v", got)
+	}
+	g.up.err = context.DeadlineExceeded
+	if rec = g.do("GET", "/categories", "", ""); rec.Code != 504 || !strings.Contains(rec.Body.String(), problemBase+"gateway-timeout") {
+		t.Fatalf("timeout: %d %s", rec.Code, rec.Body)
+	}
+}
+
 func TestUpstreamProblemsPassThrough(t *testing.T) {
 	g := newRig()
 	g.up.replies["GET /carts/c1"] = composition.Reply{Status: 404, ContentType: "application/problem+json", Body: []byte(`{"type":"/problems/not-found"}`)}

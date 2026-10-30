@@ -12,6 +12,7 @@ func TestEveryRouteMapsToItsUpstreamCall(t *testing.T) {
 		wantCall             string
 	}{
 		{"GET", "/products?q=lamp", "", "GET /products"},
+		{"GET", "/categories", "", "GET /categories"},
 		{"GET", "/products/p1", "", "GET /products/p1"},
 		{"POST", "/products/p1:delivery-dates", `{"postalPrefix":"787"}`, "POST /delivery-offers:quote"},
 		{"POST", "/carts", `{}`, "POST /carts"},
