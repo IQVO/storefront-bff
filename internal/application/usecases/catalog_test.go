@@ -27,6 +27,31 @@ func TestSearchProductsForwardsOnlyKnownFilters(t *testing.T) {
 	}
 }
 
+const categoriesBody = `{"version":3,"categories":[{"categoryId":"home","name":"Home","path":"Home","purchasableCount":4},{"categoryId":"lamps","parentId":"home","name":"Lamps","path":"Home/Lamps","purchasableCount":2}]}`
+
+func TestListCategoriesRelaysTheTreeUnchanged(t *testing.T) {
+	f := newFake().on("GET /categories", 200, categoriesBody)
+	out, err := newGateway(f).ListCategories(context.Background())
+	if err != nil || out.Reply.Status != 200 || string(out.Reply.Body) != categoriesBody {
+		t.Fatalf("out=%+v err=%v", out, err)
+	}
+	got := f.last()
+	if got.Service != composition.ProductDiscovery || got.Method != "GET" || got.Path != "/categories" || len(got.Query) != 0 {
+		t.Fatalf("call = %+v", got)
+	}
+	if got.IdempotencyKey != "" {
+		t.Fatal("a query carries no Idempotency-Key")
+	}
+}
+
+func TestListCategoriesPassesUpstreamFailuresThrough(t *testing.T) {
+	f := newFake().on("GET /categories", 503, `{"type":"/problems/upstream-unavailable"}`)
+	out, err := newGateway(f).ListCategories(context.Background())
+	if err != nil || out.Reply.Status != 503 {
+		t.Fatalf("out=%+v err=%v", out, err)
+	}
+}
+
 func TestGetProductRejectsBadID(t *testing.T) {
 	_, err := newGateway(newFake()).GetProduct(context.Background(), "a/b")
 	if !errors.Is(err, composition.ErrInvalid) {
