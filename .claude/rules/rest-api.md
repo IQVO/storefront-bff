@@ -14,7 +14,7 @@ router and spec differ. Route -> use case -> upstream call:
 - `GET /products` -> `SearchProducts` -> product-discovery `GET /products`
 - `GET /categories` -> `ListCategories` -> product-discovery `GET /categories` (tree + purchasable counts, relayed unchanged)
 - `GET /products/{id}` -> `GetProduct` -> `GET /products/{id}`
-- `POST /products/{id}:delivery-dates` -> `DeliveryDates` -> delivery-promise `POST /delivery-offers:quote` + pricing `GET /delivery-charge-schedules/current`
+- `POST /products/{id}:delivery-dates` -> `DeliveryDates` -> delivery-promise `POST /delivery-offers:quote` + pricing `GET /delivery-charge-schedules/current` (each tier relays the quoted window's optional `timeZone`, ADR 0005)
 - `POST /carts` -> `CreateCart`; `GET /carts` -> `ListCarts`; `GET /carts/{id}` -> `GetCart`
 - `POST /carts/{id}/lines` -> `AddLine`; `PATCH|DELETE /carts/{id}/lines/{item}` -> `SetLineQuantity` / `RemoveLine` (`:set-quantity` / `:remove`)
 - `POST /carts/{id}/destination` -> `SetDestination`; `POST /carts/{id}/delivery:quote|select` -> `QuoteDelivery` / `SelectDelivery`
