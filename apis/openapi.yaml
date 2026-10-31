@@ -25,7 +25,7 @@ servers:
   - url: /api/storefront
 tags:
   - name: Catalog
-    description: Product search, product page and delivery dates (product-discovery, delivery-promise, pricing).
+    description: Product search, category tree, product page and delivery dates (product-discovery, delivery-promise, pricing).
   - name: Carts
     description: Cart lines, destination and delivery selection (shopping-cart).
   - name: Checkout
@@ -55,6 +55,21 @@ paths:
         '422': {$ref: '#/components/responses/Problem'}
         '503': {$ref: '#/components/responses/Problem'}
         '504': {$ref: '#/components/responses/Problem'}
+  /categories:
+    get:
+      tags: [Catalog]
+      operationId: listCategories
+      summary: Get the category tree for department navigation
+      description: >-
+        Relays product-discovery GET /categories unchanged: the category tree
+        with purchasable counts, shaped {version, categories: [{categoryId,
+        parentId (null on a root), name, path, purchasableCount}]}. It takes
+        no parameters; anything in the query string is dropped. The page uses
+        it to show department names for the categoryId filter of GET /products.
+      responses:
+        '200': {$ref: '#/components/responses/Json'}
+        '503': {$ref: '#/components/responses/Problem'}
+        '504': {$ref: '#/components/responses/Problem'}
   /products/{id}:
     get:
       tags: [Catalog]
@@ -79,6 +94,8 @@ paths:
         postal prefix and joins the per-tier delivery charge from the current
         pricing charge schedule. A missing charge schedule only leaves the
         charge out. On a timeout the page keeps its enter-a-postal-code text.
+        Each tier carries the quoted window's destination timeZone when
+        delivery-promise sent one.
       parameters:
         - $ref: '#/components/parameters/Id'
       requestBody:
@@ -333,7 +350,7 @@ paths:
       tags: [Orders]
       operationId: listOrders
       summary: List the shopper's orders
-      description: Relays customer-ordering GET /orders. The shopper defaults to the cookie's; without either the answer is 422 session-required.
+      description: Relays customer-ordering GET /orders unchanged (each group's optional promise window timeZone included). The shopper defaults to the cookie's; without either the answer is 422 session-required.
       parameters:
         - {name: shopperId, in: query, required: false, schema: {type: string}}
         - {name: after, in: query, required: false, schema: {type: string}}
@@ -353,7 +370,9 @@ paths:
         The customer-ordering order, plus its tracking under tracking and, when
         the cookie's last checkout placed this order, the checkout totals
         under totals. Tracking and totals are best effort and absent when
-        their upstream fails; the order itself is required.
+        their upstream fails; the order itself is required. The order and
+        tracking bodies are relayed with every field, including each group's
+        optional promise window timeZone.
       parameters:
         - $ref: '#/components/parameters/Id'
       responses:
@@ -542,6 +561,14 @@ components:
               tier: {type: string, enum: [SAME_DAY, NEXT_DAY, TWO_DAY, STANDARD]}
               deliverByEarliest: {type: string, format: date-time}
               deliverByLatest: {type: string, format: date-time}
+              timeZone:
+                type: string
+                description: >-
+                  IANA time zone of the destination (for example America/Chicago),
+                  relayed from the delivery-promise quoted window. Read the window
+                  instants as local days and hours in this zone; absent for windows
+                  quoted without one, read those as UTC.
+                example: America/Chicago
               offerExpiresAt: {type: string, format: date-time}
               charge: {$ref: '#/components/schemas/Passthrough'}
               freeOver: {$ref: '#/components/schemas/Passthrough'}

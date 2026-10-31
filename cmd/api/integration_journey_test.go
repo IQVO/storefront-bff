@@ -12,6 +12,7 @@ func upstreams(t *testing.T) map[string]*fake {
 		"PRODUCT_DISCOVERY_URL": newFake(t, map[string]answer{
 			"GET /products/p1": {200, `{"catalogItemId":"p1","title":"Desk lamp"}`},
 			"GET /products":    {200, `{"items":[{"catalogItemId":"p1"}]}`},
+			"GET /categories":  {200, `{"version":1,"categories":[{"categoryId":"home","name":"Home","path":"Home","purchasableCount":1}]}`},
 		}),
 		"DELIVERY_PROMISE_URL": newFake(t, map[string]answer{
 			"POST /delivery-offers:quote": {200, `{"offers":[{"state":"QUOTED","tier":"NEXT_DAY","window":{"earliest":"2026-10-27T08:00:00Z","latest":"2026-10-27T20:00:00Z"},"expiresAt":"2026-10-26T13:00:00Z"}],"unavailable":[]}`},
@@ -48,6 +49,7 @@ func TestIntegrationShopperJourney(t *testing.T) {
 		method, path, body string
 		want               int
 	}{
+		{"GET", "/categories", "", 200},
 		{"GET", "/products?q=lamp", "", 200},
 		{"GET", "/products/p1", "", 200},
 		{"POST", "/products/p1:delivery-dates", `{"postalPrefix":"787"}`, 200},

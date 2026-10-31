@@ -10,7 +10,7 @@ import "strings"
 // ship-to, POST /promises, promise confirm/cancel, inventory feeds and policy
 // routes, is refused before a request is built.
 var allowed = map[Service][]string{
-	ProductDiscovery: {"GET /products", "GET /products/{}"},
+	ProductDiscovery: {"GET /products", "GET /products/{}", "GET /categories"},
 	DeliveryPromise:  {"POST /delivery-offers:quote"},
 	Pricing:          {"GET /delivery-charge-schedules/current"},
 	ShoppingCart: {

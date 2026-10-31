@@ -96,6 +96,20 @@ spec:
             - name: BUDGET_CONFIRM_MS
               value: {{ .Values.config.budgetConfirmMs | quote }}
             {{- end }}
+            {{- if ne (toString .Values.config.logLevel) "" }}
+            - name: LOG_LEVEL
+              value: {{ .Values.config.logLevel | quote }}
+            {{- end }}
+            {{- if .Values.otel.enabled }}
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: {{ .Values.otel.endpoint | quote }}
+            - name: OTEL_SERVICE_NAME
+              value: {{ .Values.otel.serviceName | quote }}
+            - name: SERVICE_VERSION
+              value: {{ .Values.image.tag | default .Chart.AppVersion | quote }}
+            - name: ENVIRONMENT
+              value: {{ .Values.environment | quote }}
+            {{- end }}
             {{- range .Values.extraEnv }}
             - {{ toYaml . | nindent 14 | trim }}
             {{- end }}

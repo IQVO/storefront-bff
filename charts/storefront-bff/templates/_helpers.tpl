@@ -96,7 +96,7 @@ and none of the variables the chart renders itself (the same variable is never
 set twice).
 */}}
 {{- define "storefront-bff.requireCleanExtraEnv" -}}
-{{- $owned := list "PORT" "COOKIE_SECURE" "PRODUCT_DISCOVERY_URL" "DELIVERY_PROMISE_URL" "SHOPPING_CART_URL" "CHECKOUT_URL" "CUSTOMER_ORDERING_URL" "PRICING_URL" "BUDGET_QUERY_MS" "BUDGET_COMMAND_MS" "BUDGET_CONFIRM_MS" -}}
+{{- $owned := list "PORT" "COOKIE_SECURE" "PRODUCT_DISCOVERY_URL" "DELIVERY_PROMISE_URL" "SHOPPING_CART_URL" "CHECKOUT_URL" "CUSTOMER_ORDERING_URL" "PRICING_URL" "BUDGET_QUERY_MS" "BUDGET_COMMAND_MS" "BUDGET_CONFIRM_MS" "OTEL_EXPORTER_OTLP_ENDPOINT" "OTEL_SERVICE_NAME" "SERVICE_VERSION" "ENVIRONMENT" "LOG_LEVEL" -}}
 {{- range .Values.extraEnv -}}
 {{- $name := toString .name -}}
 {{- if hasSuffix "_MODE" $name -}}

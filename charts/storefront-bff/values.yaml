@@ -120,6 +120,21 @@ config:
   # sizes the pod grace period below (endpoint-removal headroom before the
   # listener closes). Whole seconds ("5s"), minutes ("1m") or "0".
   shutdownDrainDelay: ""
+  # LOG_LEVEL of the api: debug | info | warn | error. Unset = the binary's
+  # own default (info).
+  # logLevel: "info"
+
+# Observability (the fleet standard): OTLP traces and metrics from the api.
+# SERVICE_VERSION is the image tag (appVersion when empty); ENVIRONMENT comes
+# from `environment` below. extraEnv may not set these names.
+otel:
+  enabled: true
+  endpoint: "otel-collector.observability.svc.cluster.local:4317"
+  serviceName: "storefront-bff"
+
+# ENVIRONMENT of the api: deployment.environment.name on every span, metric
+# and log.
+environment: "production"
 
 # Extra env vars appended to the api container as a raw list. The chart refuses
 # any *_MODE variable (this service has no modes at all) and any variable the

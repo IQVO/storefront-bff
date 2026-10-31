@@ -11,6 +11,10 @@ func (s *Server) catalogRoutes(r chi.Router) {
 		out, err := s.g.SearchProducts(r.Context(), r.URL.Query())
 		s.respond(w, out, err)
 	})
+	r.Get("/categories", func(w http.ResponseWriter, r *http.Request) {
+		out, err := s.g.ListCategories(r.Context())
+		s.respond(w, out, err)
+	})
 	r.Get("/products/{id}", func(w http.ResponseWriter, r *http.Request) {
 		out, err := s.g.GetProduct(r.Context(), chi.URLParam(r, "id"))
 		s.respond(w, out, err)

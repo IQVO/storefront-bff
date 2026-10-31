@@ -6,6 +6,7 @@ func TestAllowedAcceptsEveryListedRoute(t *testing.T) {
 	cases := []Call{
 		{Service: ProductDiscovery, Method: "GET", Path: "/products"},
 		{Service: ProductDiscovery, Method: "GET", Path: "/products/item-1"},
+		{Service: ProductDiscovery, Method: "GET", Path: "/categories"},
 		{Service: DeliveryPromise, Method: "POST", Path: "/delivery-offers:quote"},
 		{Service: Pricing, Method: "GET", Path: "/delivery-charge-schedules/current"},
 		{Service: ShoppingCart, Method: "POST", Path: "/carts/c1/lines/i1:set-quantity"},
@@ -29,6 +30,8 @@ func TestAllowedRefusesInOrgAndRestrictedRoutes(t *testing.T) {
 		{Service: DeliveryPromise, Method: "POST", Path: "/promises/p1:confirm"},
 		{Service: DeliveryPromise, Method: "POST", Path: "/promise-policies"},
 		{Service: ProductDiscovery, Method: "POST", Path: "/products"},
+		{Service: ProductDiscovery, Method: "POST", Path: "/categories"},
+		{Service: ProductDiscovery, Method: "GET", Path: "/categories/c1"},
 		{Service: ShoppingCart, Method: "GET", Path: "/carts/c1/lines/i1:remove"},
 		{Service: ShoppingCart, Method: "POST", Path: "/carts/c1/lines/:remove"},
 		{Service: ShoppingCart, Method: "POST", Path: "/carts/../orders/lines"},

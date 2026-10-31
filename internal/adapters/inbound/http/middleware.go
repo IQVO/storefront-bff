@@ -6,9 +6,6 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
-	"time"
-
-	"github.com/go-chi/chi/v5"
 )
 
 // maxBodyBytes caps a request body (a registration with 20 addresses fits
@@ -48,34 +45,6 @@ func rejectNUL(next http.Handler) http.Handler {
 }
 
 func hasNUL(s string) bool { return strings.ContainsRune(s, 0) || strings.Contains(s, "%00") }
-
-type statusWriter struct {
-	http.ResponseWriter
-	status int
-}
-
-func (s *statusWriter) WriteHeader(code int) {
-	s.status = code
-	s.ResponseWriter.WriteHeader(code)
-}
-
-// accessLog logs method, route pattern, status and duration. It deliberately
-// logs no body, no query string, no header and no cookie.
-func accessLog(log *slog.Logger) func(http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			start := time.Now()
-			sw := &statusWriter{ResponseWriter: w, status: http.StatusOK}
-			next.ServeHTTP(sw, r)
-			route := "unmatched"
-			if rc := chi.RouteContext(r.Context()); rc != nil && rc.RoutePattern() != "" {
-				route = rc.RoutePattern()
-			}
-			log.Info("request", "method", r.Method, "route", route, "status", sw.status,
-				"duration_ms", time.Since(start).Milliseconds())
-		})
-	}
-}
 
 // recoverPanic answers 500 instead of dropping the connection. The panic
 // value is not logged: it could embed request data.
