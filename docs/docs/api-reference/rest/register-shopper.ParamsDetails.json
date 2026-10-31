@@ -1,0 +1,1 @@
+{"parameters":[{"name":"X-Action-Id","in":"header","required":false,"description":"Optional id the page sets per click. It pins the minted upstream Idempotency-Key, so a retry of the same click is deduplicated even when the payload changed. Without it the key derives from route, subject, payload and a ten minute window.","schema":{"type":"string","minLength":1,"maxLength":64}}]}

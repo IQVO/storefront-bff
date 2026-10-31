@@ -1,0 +1,70 @@
+---
+id: quote-product-delivery-dates
+title: "Delivery dates and charges for one unit of a product"
+description: "Called by the browser after the product page rendered. Quotes one line (quantity 1) with delivery-promise POST /delivery-offers:quote for the postal prefix and joins the per-tier delivery charge from the current pricing charge schedule. A missing charge schedule only leaves the charge out. On a timeout the page keeps its enter-a-postal-code text. Each tier carries the quoted window's destination timeZone when delivery-promise sent one."
+sidebar_label: "Delivery dates and charges for one unit of a product"
+hide_title: true
+hide_table_of_contents: true
+api: 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
+sidebar_class_name: "post api-method"
+info_path: docs/api-reference/rest/storefront-bff-api
+custom_edit_url: null
+hide_send_button: true
+---
+
+import MethodEndpoint from "@theme/ApiExplorer/MethodEndpoint";
+import ParamsDetails from "@theme/ParamsDetails";
+import RequestSchema from "@theme/RequestSchema";
+import StatusCodes from "@theme/StatusCodes";
+import OperationTabs from "@theme/OperationTabs";
+import TabItem from "@theme/TabItem";
+import Heading from "@theme/Heading";
+import Translate from "@docusaurus/Translate";
+
+<Heading
+  as={"h1"}
+  className={"openapi__heading"}
+  children={"Delivery dates and charges for one unit of a product"}
+>
+</Heading>
+
+<MethodEndpoint
+  method={"post"}
+  path={"/products/{id}:delivery-dates"}
+  context={"endpoint"}
+>
+  
+</MethodEndpoint>
+
+
+
+Called by the browser after the product page rendered. Quotes one line (quantity 1) with delivery-promise POST /delivery-offers:quote for the postal prefix and joins the per-tier delivery charge from the current pricing charge schedule. A missing charge schedule only leaves the charge out. On a timeout the page keeps its enter-a-postal-code text. Each tier carries the quoted window's destination timeZone when delivery-promise sent one.
+
+<Heading
+  id={"request"}
+  as={"h2"}
+  className={"openapi-tabs__heading"}
+>
+  <Translate id="theme.openapi.request.title">Request</Translate>
+</Heading>
+
+<ParamsDetails
+  {...require("./quote-product-delivery-dates.ParamsDetails.json")}
+>
+  
+</ParamsDetails>
+
+<RequestSchema
+  {...require("./quote-product-delivery-dates.RequestSchema.json")}
+>
+  
+</RequestSchema>
+
+<StatusCodes
+  {...require("./quote-product-delivery-dates.StatusCodes.json")}
+>
+  
+</StatusCodes>
+
+
+      

@@ -1,0 +1,1 @@
+{"title":"Body","body":{"required":true,"content":{"application/json":{"schema":{"type":"object","required":["postalPrefix"],"properties":{"postalPrefix":{"type":"string","minLength":1,"maxLength":10,"description":"A postal prefix, never a full address."}},"title":"DeliveryDatesRequest"}}}}}
