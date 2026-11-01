@@ -65,12 +65,12 @@ Deploy / upgrade:
 ```sh
 helm upgrade --install storefront-bff charts/storefront-bff \
   --namespace storefront-bff --create-namespace \
-  --set config.productDiscoveryUrl=http://product-discovery.product-discovery.svc.cluster.local \
-  --set config.deliveryPromiseUrl=http://delivery-promise.delivery-promise.svc.cluster.local \
-  --set config.shoppingCartUrl=http://shopping-cart.shopping-cart.svc.cluster.local \
-  --set config.checkoutUrl=http://checkout.checkout.svc.cluster.local \
-  --set config.customerOrderingUrl=http://customer-ordering.customer-ordering.svc.cluster.local \
-  --set config.pricingUrl=http://pricing.pricing.svc.cluster.local
+  --set config.productDiscoveryUrl=http://product-discovery.warehouse-systems.svc.cluster.local \
+  --set config.deliveryPromiseUrl=http://delivery-promise.warehouse-systems.svc.cluster.local \
+  --set config.shoppingCartUrl=http://shopping-cart.warehouse-systems.svc.cluster.local \
+  --set config.checkoutUrl=http://checkout.warehouse-systems.svc.cluster.local \
+  --set config.customerOrderingUrl=http://customer-ordering.warehouse-systems.svc.cluster.local \
+  --set config.pricingUrl=http://pricing.warehouse-systems.svc.cluster.local
 kubectl -n storefront-bff rollout status deployment/storefront-bff
 ```
 
