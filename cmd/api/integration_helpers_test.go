@@ -4,6 +4,7 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -106,9 +107,24 @@ type session struct {
 	t       *testing.T
 	base    string
 	cookies []*http.Cookie
+	keys    int
 }
 
+// do sends one request; a POST or PATCH carries a fresh Idempotency-Key, as
+// the page sends one per user submit.
 func (s *session) do(method, path, body string) (int, string) {
+	s.t.Helper()
+	key := ""
+	if method == http.MethodPost || method == http.MethodPatch {
+		s.keys++
+		key = fmt.Sprintf("it-%d", s.keys)
+	}
+	return s.doWithKey(method, path, body, key)
+}
+
+// doWithKey sends one request with the given Idempotency-Key ("" sends none):
+// a retry of one submit reuses its key.
+func (s *session) doWithKey(method, path, body, key string) (int, string) {
 	s.t.Helper()
 	req, err := http.NewRequest(method, s.base+path, strings.NewReader(body))
 	if err != nil {
@@ -116,6 +132,9 @@ func (s *session) do(method, path, body string) (int, string) {
 	}
 	for _, c := range s.cookies {
 		req.AddCookie(c)
+	}
+	if key != "" {
+		req.Header.Set("Idempotency-Key", key)
 	}
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {

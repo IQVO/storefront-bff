@@ -43,8 +43,8 @@ func (g *Gateway) GetCart(ctx context.Context, id string) (Outcome, error) {
 	return g.relay(ctx, composition.Query, Actor{}, cartCall("GET", "/carts/"+id, nil))
 }
 
-// ListCarts relays GET /carts?shopperId=&state=; the shopper defaults to the
-// cookie's.
+// ListCarts relays GET /carts?shopperId=&state=&limit=&cursor=; the shopper
+// defaults to the cookie's. The answer is the provider's {items, nextCursor}.
 func (g *Gateway) ListCarts(ctx context.Context, a Actor, q url.Values) (Outcome, error) {
 	shopper := q.Get("shopperId")
 	if shopper == "" {
@@ -54,9 +54,7 @@ func (g *Gateway) ListCarts(ctx context.Context, a Actor, q url.Values) (Outcome
 		return Outcome{}, composition.Invalid("shopperId is required")
 	}
 	fwd := url.Values{"shopperId": {shopper}}
-	if s := q.Get("state"); s != "" {
-		fwd.Set("state", s)
-	}
+	forward(fwd, q, "state", "limit", "cursor")
 	c := cartCall("GET", "/carts", nil)
 	c.Query = fwd
 	return g.relay(ctx, composition.Query, a, c)
@@ -64,42 +62,41 @@ func (g *Gateway) ListCarts(ctx context.Context, a Actor, q url.Values) (Outcome
 
 // AddLine relays POST /carts/{id}/lines.
 func (g *Gateway) AddLine(ctx context.Context, a Actor, cartID string, body []byte) (Outcome, error) {
-	return g.cartCommand(ctx, a, cartID, "/lines", body)
+	return g.cartCommand(ctx, a, "POST", cartID, "/lines", body)
 }
 
-// SetDestination relays POST /carts/{id}/destination.
+// SetDestination relays PUT /carts/{id}/destination.
 func (g *Gateway) SetDestination(ctx context.Context, a Actor, cartID string, body []byte) (Outcome, error) {
-	return g.cartCommand(ctx, a, cartID, ":set-destination", body)
+	return g.cartCommand(ctx, a, "PUT", cartID, "/destination", body)
 }
 
-// QuoteDelivery relays POST /carts/{id}/delivery:quote. The cart service calls
-// delivery-promise synchronously, so it gets the command budget.
+// QuoteDelivery relays POST /carts/{id}/delivery-quotes. The cart service
+// calls delivery-promise synchronously, so it gets the command budget.
 func (g *Gateway) QuoteDelivery(ctx context.Context, a Actor, cartID string) (Outcome, error) {
-	return g.cartCommand(ctx, a, cartID, ":quote-delivery", nil)
+	return g.cartCommand(ctx, a, "POST", cartID, "/delivery-quotes", nil)
 }
 
-// SelectDelivery relays POST /carts/{id}/delivery:select.
+// SelectDelivery relays PUT /carts/{id}/delivery-selection.
 func (g *Gateway) SelectDelivery(ctx context.Context, a Actor, cartID string, body []byte) (Outcome, error) {
-	return g.cartCommand(ctx, a, cartID, ":select-delivery", body)
+	return g.cartCommand(ctx, a, "PUT", cartID, "/delivery-selection", body)
 }
 
 // SetLineQuantity relays PATCH /carts/{id}/lines/{item} as the cart's
-// set-quantity command.
+// PUT /carts/{id}/lines/{item} (replace the line quantity).
 func (g *Gateway) SetLineQuantity(ctx context.Context, a Actor, cartID, itemID string, body []byte) (Outcome, error) {
-	return g.cartCommand(ctx, a, cartID, "/lines/"+itemID+":set-quantity", body, itemID)
+	return g.cartCommand(ctx, a, "PUT", cartID, "/lines/"+itemID, body, itemID)
 }
 
-// RemoveLine relays DELETE /carts/{id}/lines/{item} as the cart's remove
-// command.
+// RemoveLine relays DELETE /carts/{id}/lines/{item}.
 func (g *Gateway) RemoveLine(ctx context.Context, a Actor, cartID, itemID string) (Outcome, error) {
-	return g.cartCommand(ctx, a, cartID, "/lines/"+itemID+":remove", nil, itemID)
+	return g.cartCommand(ctx, a, "DELETE", cartID, "/lines/"+itemID, nil, itemID)
 }
 
-func (g *Gateway) cartCommand(ctx context.Context, a Actor, cartID, suffix string, body []byte, extra ...string) (Outcome, error) {
+func (g *Gateway) cartCommand(ctx context.Context, a Actor, method, cartID, suffix string, body []byte, extra ...string) (Outcome, error) {
 	for _, id := range append([]string{cartID}, extra...) {
 		if !composition.ValidID(id) {
 			return Outcome{}, composition.Invalid("an id in the path is malformed")
 		}
 	}
-	return g.relay(ctx, composition.Command, a, cartCall("POST", "/carts/"+cartID+suffix, body))
+	return g.relay(ctx, composition.Command, a, cartCall(method, "/carts/"+cartID+suffix, body))
 }

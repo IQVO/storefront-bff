@@ -91,7 +91,12 @@ func TestAllowlistHoldsNoRestrictedRoute(t *testing.T) {
 			if restrictedRoute.MatchString(r) {
 				t.Errorf("%s allowlist names a restricted route: %s", svc, r)
 			}
-			if !strings.HasPrefix(r, "GET /") && !strings.HasPrefix(r, "POST /") {
+			// PUT and DELETE are the providers' attribute-replace and remove
+			// routes since the REST guideline cutover (no PATCH upstream).
+			method, _, _ := strings.Cut(r, " ")
+			switch method {
+			case "GET", "POST", "PUT", "DELETE":
+			default:
 				t.Errorf("%s: unexpected method in %q", svc, r)
 			}
 		}
@@ -108,12 +113,12 @@ func TestNoInOrgRouteSensorBites(t *testing.T) {
 	}{
 		{`package p; var a = "/orders/" + "/ship-to"`, 1},
 		{`package p; var a = "/promises"`, 1},
-		{`package p; var a = "/promises/p1:confirm"`, 1},
+		{`package p; var a = "/promises/p1/confirmations"`, 1},
 		{`package p; var a = "/promise-policies/current"`, 1},
 		{`package p; var a = "/inventory/feeds"`, 1},
 		{`package p; var a = "http://delivery-promise:8080"`, 1},
 		{`package p; var a = "https://example.test/x"`, 1},
-		{`package p; var a = "/orders/"; var b = "/tracking"; var c = "/delivery-offers:quote"`, 0},
+		{`package p; var a = "/orders/"; var b = "/tracking"; var c = "/delivery-quotes"`, 0},
 		{"package p; var a = `/carts/x`", 0},
 	}
 	for _, tc := range cases {

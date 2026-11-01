@@ -91,10 +91,10 @@ func TestGetOrderFailures(t *testing.T) {
 func TestListOrders(t *testing.T) {
 	f := newFake().on("GET /orders", 200, `{"items":[]}`)
 	a := Actor{State: composition.State{ShopperID: "s1"}}
-	if _, err := newGateway(f).ListOrders(context.Background(), a, url.Values{"limit": {"5"}, "after": {"cur"}, "z": {"1"}}); err != nil {
+	if _, err := newGateway(f).ListOrders(context.Background(), a, url.Values{"limit": {"5"}, "cursor": {"cur"}, "z": {"1"}}); err != nil {
 		t.Fatal(err)
 	}
-	if got := f.last().Query.Encode(); got != "after=cur&limit=5&shopperId=s1" {
+	if got := f.last().Query.Encode(); got != "cursor=cur&limit=5&shopperId=s1" {
 		t.Fatalf("query = %s", got)
 	}
 	if _, err := newGateway(f).ListOrders(context.Background(), Actor{}, nil); !errors.Is(err, composition.ErrNoSession) {
@@ -136,9 +136,9 @@ func TestGetOrderKeepsGroupAndTrackingTimeZone(t *testing.T) {
 }
 
 func TestCancelOrder(t *testing.T) {
-	f := newFake().on("POST /orders/o1:cancel", 200, orderBody)
+	f := newFake().on("POST /orders/o1/cancellations", 200, orderBody)
 	g := newGateway(f)
-	if out, err := g.CancelOrder(context.Background(), Actor{}, "o1", []byte(`{"reason":"changed my mind"}`)); err != nil || out.Reply.Status != 200 {
+	if out, err := g.CancelOrder(context.Background(), keyed, "o1", []byte(`{"reason":"changed my mind"}`)); err != nil || out.Reply.Status != 200 {
 		t.Fatalf("out=%+v err=%v", out, err)
 	}
 	if f.last().IdempotencyKey == "" {

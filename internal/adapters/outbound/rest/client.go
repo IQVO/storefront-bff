@@ -91,7 +91,10 @@ func (c *Client) Do(ctx context.Context, call composition.Call) (composition.Rep
 	if len(data) > maxReplyBytes {
 		return composition.Reply{}, errors.New("upstream reply exceeds the size cap")
 	}
-	return composition.Reply{Status: resp.StatusCode, ContentType: resp.Header.Get("Content-Type"), Body: data}, nil
+	return composition.Reply{
+		Status: resp.StatusCode, ContentType: resp.Header.Get("Content-Type"), Body: data,
+		Replayed: resp.Header.Get("Idempotency-Replayed") == "true",
+	}, nil
 }
 
 func joinPath(base, p string) string {

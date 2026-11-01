@@ -69,7 +69,7 @@ type confirmRequest struct {
 
 const maxTokenLen = 256
 
-// ConfirmCheckout relays POST /checkout/{id}:confirm with the PSP token. Raw
+// ConfirmCheckout relays POST /checkout/{id}/confirmations with the PSP token. Raw
 // card data is refused at the edge: unknown fields, card-shaped keys and a
 // token that is really a card number never leave this process.
 func (g *Gateway) ConfirmCheckout(ctx context.Context, a Actor, id string, body []byte) (Outcome, error) {
@@ -91,5 +91,5 @@ func (g *Gateway) ConfirmCheckout(ctx context.Context, a Actor, id string, body 
 	if req.PaymentMethodToken == "" || len(req.PaymentMethodToken) > maxTokenLen || composition.LooksLikeCardNumber(req.PaymentMethodToken) {
 		return Outcome{}, composition.Invalid("paymentMethodToken must be a PSP token, never a card number")
 	}
-	return g.relay(ctx, composition.Confirm, a, checkoutCall("POST", "/checkout-sessions/"+id+":confirm", body))
+	return g.relay(ctx, composition.Confirm, a, checkoutCall("POST", "/checkout-sessions/"+id+"/confirmations", body))
 }

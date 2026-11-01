@@ -23,7 +23,7 @@ func TestValidPostalPrefixCharacterAndLengthEdges(t *testing.T) {
 }
 
 func TestConfirmTokenLengthEdge(t *testing.T) {
-	f := newFake().on("POST /checkout-sessions/k1:confirm", 200, `{}`)
+	f := newFake().on("POST /checkout-sessions/k1/confirmations", 200, `{}`)
 	g := newGateway(f)
 	ok := `{"paymentMethodToken":"` + strings.Repeat("t", maxTokenLen) + `"}`
 	if _, err := g.ConfirmCheckout(context.Background(), shopperActor, "k1", []byte(ok)); err != nil {
@@ -43,7 +43,7 @@ func TestConfirmCardFieldIsNamedInTheRefusal(t *testing.T) {
 }
 
 func TestReasonAndEmailLengthEdges(t *testing.T) {
-	f := newFake().on("POST /orders/o1:cancel", 200, `{}`).on("GET /shoppers", 404, `{}`)
+	f := newFake().on("POST /orders/o1/cancellations", 200, `{}`).on("GET /shoppers", 404, `{}`)
 	g := newGateway(f)
 	reason := `{"reason":"` + strings.Repeat("r", maxReasonLen) + `"}`
 	if _, err := g.CancelOrder(context.Background(), Actor{}, "o1", []byte(reason)); err != nil {

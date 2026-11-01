@@ -11,10 +11,14 @@ info:
     checkout, customer-ordering, pricing) and the network's delivery-promise
     quote. It has no domain model, no database and no Kafka. Each route is a
     thin composition over an upstream REST API; upstream answers, including
-    their RFC 9457 problem details, are relayed unchanged. The BFF mints an
-    Idempotency-Key per user action (deterministic per route, subject and
-    payload inside a ten minute window, or pinned by the page with the
-    X-Action-Id header) and forwards it to upstream commands. Cart, shopper and
+    their RFC 9457 problem details, are relayed unchanged. Every POST and PATCH
+    requires the page's Idempotency-Key (a fresh one per user submit, reused on
+    retry); the BFF stores nothing and forwards to each upstream command a key
+    minted from (route, subject, page key), so the provider replays a retry
+    (relayed with Idempotency-Replayed: true) and answers 409
+    idempotency-key-reused when the same key carries a different request, which
+    the BFF relays unchanged. Lists answer {items, nextCursor} and take limit
+    and cursor. Cart, shopper and
     last checkout ids live in the sf_state cookie: state, NOT authentication,
     and there is no authentication anywhere. Saved addresses pass through
     without being stored or logged, request and response bodies are never
@@ -40,7 +44,7 @@ paths:
       tags: [Catalog]
       operationId: searchProducts
       summary: Search products
-      description: Relays product-discovery GET /products with the search filters q, categoryId, inStock, priceMin, priceMax, sort, after and limit; other parameters are dropped.
+      description: Relays product-discovery GET /products with the search filters q, categoryId, inStock, priceMin, priceMax, sort and the page parameters limit and cursor. An undeclared parameter answers 400 unknown-query-parameter; the answer is the provider's page {items, facets, categorySuggestions, nextCursor}.
       parameters:
         - {name: q, in: query, required: false, schema: {type: string}}
         - {name: categoryId, in: query, required: false, schema: {type: string}}
@@ -48,10 +52,15 @@ paths:
         - {name: priceMin, in: query, required: false, schema: {type: integer, format: int64, minimum: 0}}
         - {name: priceMax, in: query, required: false, schema: {type: integer, format: int64, minimum: 0}}
         - {name: sort, in: query, required: false, schema: {type: string, enum: [relevance, price-asc, price-desc, title]}}
-        - {name: after, in: query, required: false, schema: {type: string}}
-        - {name: limit, in: query, required: false, schema: {type: integer, minimum: 1, maximum: 100}}
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
       responses:
-        '200': {$ref: '#/components/responses/Json'}
+        '200':
+          description: One page of products, with the provider's facets and category suggestions.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/ProductPage'}
+        '400': {$ref: '#/components/responses/BadRequest'}
         '422': {$ref: '#/components/responses/Problem'}
         '503': {$ref: '#/components/responses/Problem'}
         '504': {$ref: '#/components/responses/Problem'}
@@ -66,6 +75,8 @@ paths:
         parentId (null on a root), name, path, purchasableCount}]}. It takes
         no parameters; anything in the query string is dropped. The page uses
         it to show department names for the categoryId filter of GET /products.
+        The tree is one bounded navigation document, not a resource collection.
+      x-pagination-exempt: view
       responses:
         '200': {$ref: '#/components/responses/Json'}
         '503': {$ref: '#/components/responses/Problem'}
@@ -83,14 +94,14 @@ paths:
         '404': {$ref: '#/components/responses/Problem'}
         '503': {$ref: '#/components/responses/Problem'}
         '504': {$ref: '#/components/responses/Problem'}
-  /products/{id}:delivery-dates:
+  /products/{id}/delivery-date-quotes:
     post:
       tags: [Catalog]
       operationId: quoteProductDeliveryDates
       summary: Delivery dates and charges for one unit of a product
       description: >-
         Called by the browser after the product page rendered. Quotes one line
-        (quantity 1) with delivery-promise POST /delivery-offers:quote for the
+        (quantity 1) with delivery-promise POST /delivery-quotes for the
         postal prefix and joins the per-tier delivery charge from the current
         pricing charge schedule. A missing charge schedule only leaves the
         charge out. On a timeout the page keeps its enter-a-postal-code text.
@@ -98,6 +109,7 @@ paths:
         delivery-promise sent one.
       parameters:
         - $ref: '#/components/parameters/Id'
+        - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
         required: true
         content:
@@ -106,9 +118,12 @@ paths:
       responses:
         '200':
           description: One entry per quoted tier, plus the tiers the network cannot serve.
+          headers: {Idempotency-Replayed: {$ref: '#/components/headers/IdempotencyReplayed'}}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/DeliveryDates'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '409': {$ref: '#/components/responses/Conflict'}
         '422': {$ref: '#/components/responses/Problem'}
         '503': {$ref: '#/components/responses/Problem'}
         '504': {$ref: '#/components/responses/Problem'}
@@ -119,7 +134,7 @@ paths:
       summary: Create a cart
       description: Relays shopping-cart POST /carts and stores the new cart id in the sf_state cookie. An empty body adopts the cookie's shopper.
       parameters:
-        - $ref: '#/components/parameters/ActionId'
+        - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
         required: false
         content:
@@ -128,10 +143,14 @@ paths:
       responses:
         '201':
           description: The created cart; sets the sf_state cookie.
-          headers: {Set-Cookie: {$ref: '#/components/headers/SetCookie'}}
+          headers:
+            Set-Cookie: {$ref: '#/components/headers/SetCookie'}
+            Idempotency-Replayed: {$ref: '#/components/headers/IdempotencyReplayed'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/Passthrough'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '409': {$ref: '#/components/responses/Conflict'}
         '422': {$ref: '#/components/responses/Problem'}
         '503': {$ref: '#/components/responses/Problem'}
         '504': {$ref: '#/components/responses/Problem'}
@@ -139,12 +158,19 @@ paths:
       tags: [Carts]
       operationId: listCarts
       summary: List carts of a shopper
-      description: Relays shopping-cart GET /carts. The shopper defaults to the cookie's.
+      description: Relays shopping-cart GET /carts with shopperId, state, limit and cursor. The shopper defaults to the cookie's. An undeclared parameter answers 400 unknown-query-parameter.
       parameters:
         - {name: shopperId, in: query, required: false, schema: {type: string}}
         - {name: state, in: query, required: false, schema: {type: string}}
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
       responses:
-        '200': {$ref: '#/components/responses/Json'}
+        '200':
+          description: One page of the shopper's carts.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/CartPage'}
+        '400': {$ref: '#/components/responses/BadRequest'}
         '422': {$ref: '#/components/responses/Problem'}
         '503': {$ref: '#/components/responses/Problem'}
         '504': {$ref: '#/components/responses/Problem'}
@@ -169,16 +195,17 @@ paths:
       description: Relays shopping-cart POST /carts/{cartId}/lines with a minted Idempotency-Key.
       parameters:
         - $ref: '#/components/parameters/Id'
-        - $ref: '#/components/parameters/ActionId'
+        - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
         required: true
         content:
           application/json:
             schema: {$ref: '#/components/schemas/Passthrough'}
       responses:
-        '200': {$ref: '#/components/responses/Json'}
+        '200': {$ref: '#/components/responses/JsonCommand'}
+        '400': {$ref: '#/components/responses/BadRequest'}
         '404': {$ref: '#/components/responses/Problem'}
-        '409': {$ref: '#/components/responses/Problem'}
+        '409': {$ref: '#/components/responses/Conflict'}
         '422': {$ref: '#/components/responses/Problem'}
         '503': {$ref: '#/components/responses/Problem'}
         '504': {$ref: '#/components/responses/Problem'}
@@ -187,20 +214,21 @@ paths:
       tags: [Carts]
       operationId: setCartLineQuantity
       summary: Change the quantity of a cart line
-      description: Relays shopping-cart POST /carts/{cartId}/lines/{catalogItemId}:set-quantity.
+      description: Relays shopping-cart PUT /carts/{cartId}/lines/{catalogItemId} (replace the line quantity). A PATCH, so it requires an Idempotency-Key.
       parameters:
         - $ref: '#/components/parameters/Id'
         - $ref: '#/components/parameters/Item'
-        - $ref: '#/components/parameters/ActionId'
+        - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
         required: true
         content:
           application/json:
             schema: {$ref: '#/components/schemas/Passthrough'}
       responses:
-        '200': {$ref: '#/components/responses/Json'}
+        '200': {$ref: '#/components/responses/JsonCommand'}
+        '400': {$ref: '#/components/responses/BadRequest'}
         '404': {$ref: '#/components/responses/Problem'}
-        '409': {$ref: '#/components/responses/Problem'}
+        '409': {$ref: '#/components/responses/Conflict'}
         '422': {$ref: '#/components/responses/Problem'}
         '503': {$ref: '#/components/responses/Problem'}
         '504': {$ref: '#/components/responses/Problem'}
@@ -208,11 +236,10 @@ paths:
       tags: [Carts]
       operationId: removeCartLine
       summary: Remove a cart line
-      description: Relays shopping-cart POST /carts/{cartId}/lines/{catalogItemId}:remove.
+      description: Relays shopping-cart DELETE /carts/{cartId}/lines/{catalogItemId}. An Idempotency-Key is optional and ignored.
       parameters:
         - $ref: '#/components/parameters/Id'
         - $ref: '#/components/parameters/Item'
-        - $ref: '#/components/parameters/ActionId'
       responses:
         '200': {$ref: '#/components/responses/Json'}
         '404': {$ref: '#/components/responses/Problem'}
@@ -220,14 +247,13 @@ paths:
         '503': {$ref: '#/components/responses/Problem'}
         '504': {$ref: '#/components/responses/Problem'}
   /carts/{id}/destination:
-    post:
+    put:
       tags: [Carts]
       operationId: setCartDestination
       summary: Set the destination postal prefix
-      description: Relays shopping-cart POST /carts/{cartId}:set-destination. Clears the current delivery quote.
+      description: Relays shopping-cart PUT /carts/{cartId}/destination. Clears the current delivery quote. An Idempotency-Key is optional and ignored.
       parameters:
         - $ref: '#/components/parameters/Id'
-        - $ref: '#/components/parameters/ActionId'
       requestBody:
         required: true
         content:
@@ -240,31 +266,31 @@ paths:
         '422': {$ref: '#/components/responses/Problem'}
         '503': {$ref: '#/components/responses/Problem'}
         '504': {$ref: '#/components/responses/Problem'}
-  /carts/{id}/delivery:quote:
+  /carts/{id}/delivery-quotes:
     post:
       tags: [Carts]
       operationId: quoteCartDelivery
       summary: Quote delivery offers for the cart
-      description: Relays shopping-cart POST /carts/{cartId}:quote-delivery, which calls delivery-promise synchronously (command budget).
+      description: Relays shopping-cart POST /carts/{cartId}/delivery-quotes, which calls delivery-promise synchronously (command budget).
       parameters:
         - $ref: '#/components/parameters/Id'
-        - $ref: '#/components/parameters/ActionId'
+        - $ref: '#/components/parameters/IdempotencyKey'
       responses:
-        '200': {$ref: '#/components/responses/Json'}
+        '200': {$ref: '#/components/responses/JsonCommand'}
+        '400': {$ref: '#/components/responses/BadRequest'}
         '404': {$ref: '#/components/responses/Problem'}
-        '409': {$ref: '#/components/responses/Problem'}
+        '409': {$ref: '#/components/responses/Conflict'}
         '422': {$ref: '#/components/responses/Problem'}
         '503': {$ref: '#/components/responses/Problem'}
         '504': {$ref: '#/components/responses/Problem'}
-  /carts/{id}/delivery:select:
-    post:
+  /carts/{id}/delivery-selection:
+    put:
       tags: [Carts]
       operationId: selectCartDelivery
       summary: Select a delivery offer for a shipment group
-      description: Relays shopping-cart POST /carts/{cartId}:select-delivery.
+      description: Relays shopping-cart PUT /carts/{cartId}/delivery-selection. An Idempotency-Key is optional and ignored.
       parameters:
         - $ref: '#/components/parameters/Id'
-        - $ref: '#/components/parameters/ActionId'
       requestBody:
         required: true
         content:
@@ -288,7 +314,7 @@ paths:
         saved address is only a shipToAddressId. Stores the session id in the
         sf_state cookie.
       parameters:
-        - $ref: '#/components/parameters/ActionId'
+        - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
         required: true
         content:
@@ -297,11 +323,14 @@ paths:
       responses:
         '201':
           description: The opened session; sets the sf_state cookie.
-          headers: {Set-Cookie: {$ref: '#/components/headers/SetCookie'}}
+          headers:
+            Set-Cookie: {$ref: '#/components/headers/SetCookie'}
+            Idempotency-Replayed: {$ref: '#/components/headers/IdempotencyReplayed'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/Passthrough'}
-        '409': {$ref: '#/components/responses/Problem'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '409': {$ref: '#/components/responses/Conflict'}
         '422': {$ref: '#/components/responses/Problem'}
         '503': {$ref: '#/components/responses/Problem'}
         '504': {$ref: '#/components/responses/Problem'}
@@ -310,7 +339,7 @@ paths:
       tags: [Checkout]
       operationId: getCheckout
       summary: Get a checkout session
-      description: Relays checkout GET /checkout-sessions/{sessionId}. The page polls it while a placement is in doubt (202 from confirm).
+      description: Relays checkout GET /checkout-sessions/{sessionId}. The page polls it while a placement is in doubt (202 from confirmations).
       parameters:
         - $ref: '#/components/parameters/Id'
       responses:
@@ -318,30 +347,31 @@ paths:
         '404': {$ref: '#/components/responses/Problem'}
         '503': {$ref: '#/components/responses/Problem'}
         '504': {$ref: '#/components/responses/Problem'}
-  /checkout/{id}:confirm:
+  /checkout/{id}/confirmations:
     post:
       tags: [Checkout]
       operationId: confirmCheckout
       summary: Confirm the session with a payment method token
       description: >-
-        Relays checkout POST /checkout-sessions/{sessionId}:confirm with the
+        Relays checkout POST /checkout-sessions/{sessionId}/confirmations with the
         PSP token (never a card number: card-shaped fields and a token that is
         a card number are refused with 422 before any upstream call). Uses the
         long confirm budget. 200 carries a definitive session, 202 an
         in-doubt placement to poll.
       parameters:
         - $ref: '#/components/parameters/Id'
-        - $ref: '#/components/parameters/ActionId'
+        - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
         required: true
         content:
           application/json:
             schema: {$ref: '#/components/schemas/ConfirmCheckoutRequest'}
       responses:
-        '200': {$ref: '#/components/responses/Json'}
-        '202': {$ref: '#/components/responses/Json'}
+        '200': {$ref: '#/components/responses/JsonCommand'}
+        '202': {$ref: '#/components/responses/JsonCommand'}
+        '400': {$ref: '#/components/responses/BadRequest'}
         '404': {$ref: '#/components/responses/Problem'}
-        '409': {$ref: '#/components/responses/Problem'}
+        '409': {$ref: '#/components/responses/Conflict'}
         '422': {$ref: '#/components/responses/Problem'}
         '503': {$ref: '#/components/responses/Problem'}
         '504': {$ref: '#/components/responses/Problem'}
@@ -350,13 +380,18 @@ paths:
       tags: [Orders]
       operationId: listOrders
       summary: List the shopper's orders
-      description: Relays customer-ordering GET /orders unchanged (each group's optional promise window timeZone included). The shopper defaults to the cookie's; without either the answer is 422 session-required.
+      description: Relays customer-ordering GET /orders with shopperId, limit and cursor (each group's optional promise window timeZone included). The shopper defaults to the cookie's; without either the answer is 422 session-required. An undeclared parameter answers 400 unknown-query-parameter.
       parameters:
         - {name: shopperId, in: query, required: false, schema: {type: string}}
-        - {name: after, in: query, required: false, schema: {type: string}}
-        - {name: limit, in: query, required: false, schema: {type: integer, minimum: 1, maximum: 100}}
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
       responses:
-        '200': {$ref: '#/components/responses/Json'}
+        '200':
+          description: One page of the shopper's orders.
+          content:
+            application/json:
+              schema: {$ref: '#/components/schemas/OrderPage'}
+        '400': {$ref: '#/components/responses/BadRequest'}
         '404': {$ref: '#/components/responses/Problem'}
         '422': {$ref: '#/components/responses/Problem'}
         '503': {$ref: '#/components/responses/Problem'}
@@ -380,24 +415,25 @@ paths:
         '404': {$ref: '#/components/responses/Problem'}
         '503': {$ref: '#/components/responses/Problem'}
         '504': {$ref: '#/components/responses/Problem'}
-  /orders/{id}:cancel:
+  /orders/{id}/cancellations:
     post:
       tags: [Orders]
       operationId: cancelOrder
       summary: Request the cancellation of an order
-      description: Relays customer-ordering POST /orders/{orderId}:cancel. Refused upstream (409 cancel-after-lock) once a group is locked.
+      description: Relays customer-ordering POST /orders/{orderId}/cancellations. Refused upstream (409 cancel-after-lock) once a group is locked.
       parameters:
         - $ref: '#/components/parameters/Id'
-        - $ref: '#/components/parameters/ActionId'
+        - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
         required: true
         content:
           application/json:
             schema: {$ref: '#/components/schemas/CancelOrderRequest'}
       responses:
-        '200': {$ref: '#/components/responses/Json'}
+        '200': {$ref: '#/components/responses/JsonCommand'}
+        '400': {$ref: '#/components/responses/BadRequest'}
         '404': {$ref: '#/components/responses/Problem'}
-        '409': {$ref: '#/components/responses/Problem'}
+        '409': {$ref: '#/components/responses/Conflict'}
         '422': {$ref: '#/components/responses/Problem'}
         '503': {$ref: '#/components/responses/Problem'}
         '504': {$ref: '#/components/responses/Problem'}
@@ -408,7 +444,7 @@ paths:
       summary: Register a shopper
       description: Relays customer-ordering POST /shoppers. The body, including saved addresses, passes through untouched and is never stored or logged. Stores the shopper id in the sf_state cookie.
       parameters:
-        - $ref: '#/components/parameters/ActionId'
+        - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
         required: true
         content:
@@ -417,11 +453,14 @@ paths:
       responses:
         '201':
           description: The registered shopper; sets the sf_state cookie.
-          headers: {Set-Cookie: {$ref: '#/components/headers/SetCookie'}}
+          headers:
+            Set-Cookie: {$ref: '#/components/headers/SetCookie'}
+            Idempotency-Replayed: {$ref: '#/components/headers/IdempotencyReplayed'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/Passthrough'}
-        '409': {$ref: '#/components/responses/Problem'}
+        '400': {$ref: '#/components/responses/BadRequest'}
+        '409': {$ref: '#/components/responses/Conflict'}
         '422': {$ref: '#/components/responses/Problem'}
         '503': {$ref: '#/components/responses/Problem'}
         '504': {$ref: '#/components/responses/Problem'}
@@ -433,7 +472,10 @@ paths:
       description: >-
         Looks the shopper up with customer-ordering GET /shoppers?email=.
         There is no password and no authentication; the cookie only
-        remembers which shopper the page acts for.
+        remembers which shopper the page acts for. A POST, so it requires an
+        Idempotency-Key; the lookup is a read upstream, so it is never replayed.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
         required: true
         content:
@@ -442,11 +484,15 @@ paths:
       responses:
         '200':
           description: The shopper; sets the sf_state cookie.
-          headers: {Set-Cookie: {$ref: '#/components/headers/SetCookie'}}
+          headers:
+            Set-Cookie: {$ref: '#/components/headers/SetCookie'}
+            Idempotency-Replayed: {$ref: '#/components/headers/IdempotencyReplayed'}
           content:
             application/json:
               schema: {$ref: '#/components/schemas/Passthrough'}
+        '400': {$ref: '#/components/responses/BadRequest'}
         '404': {$ref: '#/components/responses/Problem'}
+        '409': {$ref: '#/components/responses/Conflict'}
         '422': {$ref: '#/components/responses/Problem'}
         '503': {$ref: '#/components/responses/Problem'}
         '504': {$ref: '#/components/responses/Problem'}
@@ -469,15 +515,17 @@ paths:
       summary: Save an address for the cookie's shopper
       description: Relays customer-ordering POST /shoppers/{shopperId}/addresses. The address passes through; it is never stored or logged here.
       parameters:
-        - $ref: '#/components/parameters/ActionId'
+        - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
         required: true
         content:
           application/json:
             schema: {$ref: '#/components/schemas/Passthrough'}
       responses:
-        '201': {$ref: '#/components/responses/Json'}
+        '201': {$ref: '#/components/responses/JsonCommand'}
+        '400': {$ref: '#/components/responses/BadRequest'}
         '404': {$ref: '#/components/responses/Problem'}
+        '409': {$ref: '#/components/responses/Conflict'}
         '422': {$ref: '#/components/responses/Problem'}
         '503': {$ref: '#/components/responses/Problem'}
         '504': {$ref: '#/components/responses/Problem'}
@@ -495,26 +543,75 @@ components:
       required: true
       description: A catalogue item id.
       schema: {type: string, minLength: 1, maxLength: 128}
-    ActionId:
-      name: X-Action-Id
+    IdempotencyKey:
+      name: Idempotency-Key
       in: header
-      required: false
+      required: true
       description: >-
-        Optional id the page sets per click. It pins the minted upstream
-        Idempotency-Key, so a retry of the same click is deduplicated even when
-        the payload changed. Without it the key derives from route, subject,
-        payload and a ten minute window.
-      schema: {type: string, minLength: 1, maxLength: 64}
+        The page's key for one user submit: a fresh crypto.randomUUID() per
+        submit, reused on retry. The BFF forwards to the upstream command a key
+        minted from (route, subject, this key); the provider replays a retry and
+        answers 409 idempotency-key-reused when the same key carries a
+        different request. Missing: 400 idempotency-key-required; longer than
+        128 characters or not visible ASCII: 400 idempotency-key-invalid.
+      schema: {type: string, minLength: 1, maxLength: 128}
+    Limit:
+      name: limit
+      in: query
+      required: false
+      description: Page size (default 100). Relayed; the provider may enforce a lower bound of its own.
+      schema: {type: integer, minimum: 1, maximum: 500, default: 100}
+    Cursor:
+      name: cursor
+      in: query
+      required: false
+      description: The opaque nextCursor of the previous page, relayed to the provider unchanged (400 invalid-cursor from the provider when it is not one of its tokens).
+      schema: {type: string}
   headers:
     SetCookie:
       description: The sf_state cookie (HttpOnly, SameSite=Lax, path /api/storefront). State, not authentication.
       schema: {type: string}
+    IdempotencyReplayed:
+      description: Present, with the value true, only when the answer is a replay of a stored one (any upstream write hop of the composition was replayed).
+      schema: {type: string, enum: ["true"]}
   responses:
     Json:
       description: The upstream answer, relayed unchanged.
       content:
         application/json:
           schema: {$ref: '#/components/schemas/Passthrough'}
+    JsonCommand:
+      description: The upstream answer to a keyed command, relayed unchanged.
+      headers:
+        Idempotency-Replayed: {$ref: '#/components/headers/IdempotencyReplayed'}
+      content:
+        application/json:
+          schema: {$ref: '#/components/schemas/Passthrough'}
+    BadRequest:
+      description: >-
+        A 400 problem: idempotency-key-required, idempotency-key-invalid,
+        unknown-query-parameter, invalid-limit, invalid-cursor (relayed from the
+        provider) or malformed-request.
+      content:
+        application/problem+json:
+          schema: {$ref: '#/components/schemas/Problem'}
+          examples:
+            idempotency-key-required:
+              value: {type: /problems/idempotency-key-required, title: Idempotency-Key header is required, status: 400}
+            unknown-query-parameter:
+              value: {type: /problems/unknown-query-parameter, title: Unknown query parameter, status: 400, detail: unknown query parameter after}
+    Conflict:
+      description: >-
+        A 409 problem relayed from the provider: a business conflict, or
+        idempotency-key-reused when the same Idempotency-Key was sent with a
+        different request (method, path or body). The BFF passes it through
+        unchanged.
+      content:
+        application/problem+json:
+          schema: {$ref: '#/components/schemas/Problem'}
+          examples:
+            idempotency-key-reused:
+              value: {type: /problems/idempotency-key-reused, title: Idempotency-Key reused with a different request, status: 409}
     Problem:
       description: >-
         An RFC 9457 problem. Upstream problems are relayed unchanged; the edge
@@ -529,6 +626,29 @@ components:
       type: object
       description: A JSON document owned by the upstream contract; the BFF does not interpret it.
       additionalProperties: true
+    ProductPage:
+      type: object
+      description: product-discovery's search page, relayed unchanged.
+      required: [items]
+      properties:
+        items: {type: array, items: {$ref: '#/components/schemas/Passthrough'}}
+        facets: {$ref: '#/components/schemas/Passthrough'}
+        categorySuggestions: {type: array, items: {$ref: '#/components/schemas/Passthrough'}}
+        nextCursor: {type: string, description: Absent on the last page.}
+    CartPage:
+      type: object
+      description: shopping-cart's carts page, relayed unchanged.
+      required: [items]
+      properties:
+        items: {type: array, items: {$ref: '#/components/schemas/Passthrough'}}
+        nextCursor: {type: string, description: Absent on the last page.}
+    OrderPage:
+      type: object
+      description: customer-ordering's orders page, relayed unchanged.
+      required: [items]
+      properties:
+        items: {type: array, items: {$ref: '#/components/schemas/Passthrough'}}
+        nextCursor: {type: string, description: Absent on the last page.}
     Problem:
       type: object
       description: RFC 9457 problem details.

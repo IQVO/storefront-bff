@@ -10,6 +10,9 @@ import (
 
 var shopperActor = Actor{State: composition.State{ShopperID: "s1", CartID: "c1"}}
 
+// keyedShopper is shopperActor on a keyed submit.
+var keyedShopper = Actor{State: shopperActor.State, IdempotencyKey: "k-1"}
+
 func TestOpenCheckoutComposesSessionRequest(t *testing.T) {
 	f := newFake().on("POST /checkout-sessions", 201, `{"sessionId":"k-1","state":"OPEN"}`)
 	out, err := newGateway(f).OpenCheckout(context.Background(), shopperActor, []byte(`{"shipToAddressId":"a1"}`))
@@ -63,9 +66,9 @@ func TestOpenCheckoutRelaysRequotedOfferTimeZone(t *testing.T) {
 }
 
 func TestConfirmCheckoutUsesConfirmBudgetAndKeepsBody(t *testing.T) {
-	f := newFake().on("POST /checkout-sessions/k1:confirm", 202, `{"state":"PLACING"}`)
+	f := newFake().on("POST /checkout-sessions/k1/confirmations", 202, `{"state":"PLACING"}`)
 	body := []byte(`{"paymentMethodToken":"tok_abc"}`)
-	out, err := newGateway(f).ConfirmCheckout(context.Background(), shopperActor, "k1", body)
+	out, err := newGateway(f).ConfirmCheckout(context.Background(), keyedShopper, "k1", body)
 	if err != nil || out.Reply.Status != 202 || string(f.last().Body) != string(body) || f.last().IdempotencyKey == "" {
 		t.Fatalf("out=%+v err=%v call=%+v", out, err, f.last())
 	}

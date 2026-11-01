@@ -5,22 +5,22 @@ import "strings"
 // allowed is the closed list of upstream routes the storefront may call: the
 // network's Open Host Service routes the model lists for "shopper /
 // storefront" plus the customer-ordering shopper routes (NG1-NG3) and the
-// storefront contexts' own REST routes. "{}" is one path segment; a literal
-// tail after it (":confirm") is a custom-verb suffix. Anything else, notably
+// storefront contexts' own REST routes. "{}" is one path segment. Anything
+// else, notably
 // ship-to, POST /promises, promise confirm/cancel, inventory feeds and policy
 // routes, is refused before a request is built.
 var allowed = map[Service][]string{
 	ProductDiscovery: {"GET /products", "GET /products/{}", "GET /categories"},
-	DeliveryPromise:  {"POST /delivery-offers:quote"},
+	DeliveryPromise:  {"POST /delivery-quotes"},
 	Pricing:          {"GET /delivery-charge-schedules/current"},
 	ShoppingCart: {
 		"POST /carts", "GET /carts", "GET /carts/{}", "POST /carts/{}/lines",
-		"POST /carts/{}/lines/{}:set-quantity", "POST /carts/{}/lines/{}:remove",
-		"POST /carts/{}:set-destination", "POST /carts/{}:quote-delivery", "POST /carts/{}:select-delivery",
+		"PUT /carts/{}/lines/{}", "DELETE /carts/{}/lines/{}",
+		"PUT /carts/{}/destination", "POST /carts/{}/delivery-quotes", "PUT /carts/{}/delivery-selection",
 	},
-	Checkout: {"POST /checkout-sessions", "GET /checkout-sessions/{}", "POST /checkout-sessions/{}:confirm"},
+	Checkout: {"POST /checkout-sessions", "GET /checkout-sessions/{}", "POST /checkout-sessions/{}/confirmations"},
 	CustomerOrdering: {
-		"GET /orders", "GET /orders/{}", "GET /orders/{}/tracking", "POST /orders/{}:cancel",
+		"GET /orders", "GET /orders/{}", "GET /orders/{}/tracking", "POST /orders/{}/cancellations",
 		"GET /shoppers", "POST /shoppers", "GET /shoppers/{}", "POST /shoppers/{}/addresses",
 	},
 }

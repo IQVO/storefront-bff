@@ -9,7 +9,6 @@ import (
 	"net/http/httptest"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/IQVO/storefront-bff/internal/application/usecases"
 	"github.com/IQVO/storefront-bff/internal/domain/composition"
@@ -54,7 +53,7 @@ func newRig() *rig {
 	up := &stubUp{replies: map[string]composition.Reply{}}
 	logs := &bytes.Buffer{}
 	log := slog.New(slog.NewTextHandler(logs, nil))
-	g := usecases.NewGateway(up, composition.DefaultBudgets(), func() time.Time { return time.Date(2026, 10, 26, 0, 0, 0, 0, time.UTC) })
+	g := usecases.NewGateway(up, composition.DefaultBudgets())
 	srv := NewServer(g, log, true, "")
 	return &rig{server: srv, up: up, logs: logs, h: srv.Handler()}
 }
@@ -65,6 +64,9 @@ func (g *rig) do(method, target, body string, cookie string) *httptest.ResponseR
 		rd = strings.NewReader(body)
 	}
 	req := httptest.NewRequest(method, target, rd)
+	if method == http.MethodPost || method == http.MethodPatch {
+		req.Header.Set(idempotencyKeyHeader, "k-test")
+	}
 	if cookie != "" {
 		req.AddCookie(&http.Cookie{Name: composition.CookieName, Value: cookie})
 	}
@@ -75,9 +77,13 @@ func (g *rig) do(method, target, body string, cookie string) *httptest.ResponseR
 
 func newRecorder() *httptest.ResponseRecorder { return httptest.NewRecorder() }
 
-func (g *rig) reqWithAction(method, target, body, action string) *http.Request {
+// reqWithKey builds a request with an explicit Idempotency-Key ("" sends none).
+func (g *rig) reqWithKey(method, target, body, key string) *http.Request {
 	req := httptest.NewRequest(method, target, strings.NewReader(body))
-	req.Header.Set("X-Action-Id", action)
+	if key != "" {
+		req.Header.Set(idempotencyKeyHeader, key)
+	}
+	req.AddCookie(&http.Cookie{Name: composition.CookieName, Value: stateCookie})
 	return req
 }
 

@@ -14,22 +14,22 @@ func TestEveryRouteMapsToItsUpstreamCall(t *testing.T) {
 		{"GET", "/products?q=lamp", "", "GET /products"},
 		{"GET", "/categories", "", "GET /categories"},
 		{"GET", "/products/p1", "", "GET /products/p1"},
-		{"POST", "/products/p1:delivery-dates", `{"postalPrefix":"787"}`, "POST /delivery-offers:quote"},
+		{"POST", "/products/p1/delivery-date-quotes", `{"postalPrefix":"787"}`, "POST /delivery-quotes"},
 		{"POST", "/carts", `{}`, "POST /carts"},
 		{"GET", "/carts?state=OPEN", "", "GET /carts"},
 		{"GET", "/carts/c1", "", "GET /carts/c1"},
 		{"POST", "/carts/c1/lines", `{"catalogItemId":"i1","quantity":1}`, "POST /carts/c1/lines"},
-		{"PATCH", "/carts/c1/lines/i1", `{"quantity":2}`, "POST /carts/c1/lines/i1:set-quantity"},
-		{"DELETE", "/carts/c1/lines/i1", "", "POST /carts/c1/lines/i1:remove"},
-		{"POST", "/carts/c1/destination", `{"destinationPostalPrefix":"787"}`, "POST /carts/c1:set-destination"},
-		{"POST", "/carts/c1/delivery:quote", "", "POST /carts/c1:quote-delivery"},
-		{"POST", "/carts/c1/delivery:select", `{"groupNo":1,"offerId":"o1"}`, "POST /carts/c1:select-delivery"},
+		{"PATCH", "/carts/c1/lines/i1", `{"quantity":2}`, "PUT /carts/c1/lines/i1"},
+		{"DELETE", "/carts/c1/lines/i1", "", "DELETE /carts/c1/lines/i1"},
+		{"PUT", "/carts/c1/destination", `{"destinationPostalPrefix":"787"}`, "PUT /carts/c1/destination"},
+		{"POST", "/carts/c1/delivery-quotes", "", "POST /carts/c1/delivery-quotes"},
+		{"PUT", "/carts/c1/delivery-selection", `{"groupNo":1,"offerId":"o1"}`, "PUT /carts/c1/delivery-selection"},
 		{"POST", "/checkout", `{"shipToAddressId":"a1"}`, "POST /checkout-sessions"},
 		{"GET", "/checkout/k1", "", "GET /checkout-sessions/k1"},
-		{"POST", "/checkout/k1:confirm", `{"paymentMethodToken":"tok_1"}`, "POST /checkout-sessions/k1:confirm"},
+		{"POST", "/checkout/k1/confirmations", `{"paymentMethodToken":"tok_1"}`, "POST /checkout-sessions/k1/confirmations"},
 		{"GET", "/orders", "", "GET /orders"},
 		{"GET", "/orders/o1", "", "GET /orders/o1"},
-		{"POST", "/orders/o1:cancel", `{"reason":"changed my mind"}`, "POST /orders/o1:cancel"},
+		{"POST", "/orders/o1/cancellations", `{"reason":"changed my mind"}`, "POST /orders/o1/cancellations"},
 		{"POST", "/shoppers", `{"email":"a@example.test"}`, "POST /shoppers"},
 		{"POST", "/sessions", `{"email":"a@example.test"}`, "GET /shoppers"},
 		{"GET", "/me", "", "GET /shoppers/s1"},
@@ -54,26 +54,20 @@ func TestEveryRouteMapsToItsUpstreamCall(t *testing.T) {
 
 func TestCommandsForwardMintedIdempotencyKey(t *testing.T) {
 	g := newRig()
-	g.do("POST", "/carts/c1/lines", `{"catalogItemId":"i1","quantity":1}`, stateCookie)
-	first := g.up.last().IdempotencyKey
-	g.do("POST", "/carts/c1/lines", `{"catalogItemId":"i1","quantity":1}`, stateCookie)
-	if first == "" || first != g.up.last().IdempotencyKey {
-		t.Fatalf("a retry must carry the same key: %q vs %q", first, g.up.last().IdempotencyKey)
-	}
-	g.do("POST", "/carts/c1/lines", `{"catalogItemId":"i2","quantity":1}`, stateCookie)
-	if g.up.last().IdempotencyKey == first {
-		t.Fatal("a different payload must not share the key")
-	}
-}
-
-func TestActionHeaderPinsKey(t *testing.T) {
-	g := newRig()
-	do := func(body string) string {
-		req := g.reqWithAction("POST", "/carts/c1/lines", body, "click-1")
-		g.h.ServeHTTP(newRecorder(), req)
+	send := func(body, key string) string {
+		g.h.ServeHTTP(newRecorder(), g.reqWithKey("POST", "/carts/c1/lines", body, key))
 		return g.up.last().IdempotencyKey
 	}
-	if do(`{"a":1}`) != do(`{"a":2}`) {
-		t.Fatal("the X-Action-Id must pin the key")
+	first := send(`{"catalogItemId":"i1","quantity":1}`, "click-1")
+	if first == "" || first == "click-1" || first != send(`{"catalogItemId":"i1","quantity":1}`, "click-1") {
+		t.Fatalf("a retry with the same page key must carry the same minted upstream key: %q", first)
+	}
+	// Same page key, different body: the same upstream key, so the provider
+	// sees the fingerprint mismatch and answers 409 idempotency-key-reused.
+	if send(`{"catalogItemId":"i2","quantity":1}`, "click-1") != first {
+		t.Fatal("the page key, not the body, owns the upstream key")
+	}
+	if send(`{"catalogItemId":"i1","quantity":1}`, "click-2") == first {
+		t.Fatal("a fresh page key must mint a fresh upstream key")
 	}
 }
