@@ -88,7 +88,7 @@ const sidebar: SidebarsConfig = {
           type: "doc",
           id: "api-reference/rest/set-cart-destination",
           label: "Set the destination postal prefix",
-          className: "api-method post",
+          className: "api-method put",
         },
         {
           type: "doc",
@@ -100,7 +100,7 @@ const sidebar: SidebarsConfig = {
           type: "doc",
           id: "api-reference/rest/select-cart-delivery",
           label: "Select a delivery offer for a shipment group",
-          className: "api-method post",
+          className: "api-method put",
         },
       ],
     },
