@@ -53,7 +53,7 @@ func recoverPanic(log *slog.Logger) func(http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			defer func() {
 				if recover() != nil {
-					log.Error("handler panic", "method", r.Method, "path", r.URL.Path)
+					log.Error("handler panic", "method", r.Method, "path", sanitizeLog(r.URL.Path))
 					writeProblem(w, pInternal, "")
 				}
 			}()
