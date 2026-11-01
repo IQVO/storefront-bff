@@ -1,0 +1,29 @@
+# Used by `helm lint` / `ct lint`: every optional value and component set at
+# once (api + HPA + gateway + ingress + every optional config.* value). Dummy
+# upstream hosts; nothing here is ever dialled.
+config:
+  cookieSecure: true
+  productDiscoveryUrl: "http://product-discovery.example.invalid"
+  deliveryPromiseUrl: "http://delivery-promise.example.invalid"
+  shoppingCartUrl: "http://shopping-cart.example.invalid"
+  checkoutUrl: "http://checkout.example.invalid"
+  customerOrderingUrl: "http://customer-ordering.example.invalid"
+  pricingUrl: "http://pricing.example.invalid"
+  budgetQueryMs: 3000
+  budgetCommandMs: 6000
+  budgetConfirmMs: 20000
+  shutdownDrainDelay: "5s"
+autoscaling:
+  api:
+    enabled: true
+ingress:
+  enabled: true
+gatewayApi:
+  enabled: true
+  parentRefs:
+    - name: warehouse-gateway
+      namespace: kong
+      sectionName: http
+  hosts:
+    - path: /api/storefront
+      pathType: PathPrefix
