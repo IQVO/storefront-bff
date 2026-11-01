@@ -1,0 +1,47 @@
+---
+id: storefront-bff-api
+title: "Storefront BFF API"
+description: "The only storefront edge (/api/storefront). A backend-for-frontend that composes the storefront contexts (product-discovery, shopping-cart, checkout, customer-ordering, pricing) and the network's delivery-promise quote. It has no domain model, no database and no Kafka. Each route is a thin composition over an upstream REST API; upstream answers, including their RFC 9457 problem details, are relayed unchanged. The BFF mints an Idempotency-Key per user action (deterministic per route, subject and payload inside a ten minute window, or pinned by the page with the X-Action-Id header) and forwards it to upstream commands. Cart, shopper and last checkout ids live in the sf_state cookie: state, NOT authentication, and there is no authentication anywhere. Saved addresses pass through without being stored or logged, request and response bodies are never logged, and only PSP payment-method tokens are accepted, never card data. Every route has a time budget (2 s queries, 5 s commands, 15 s checkout confirm); an expired budget answers 504 and is never retried."
+sidebar_label: Introduction
+sidebar_position: 0
+hide_title: true
+custom_edit_url: null
+---
+
+import ApiLogo from "@theme/ApiLogo";
+import Heading from "@theme/Heading";
+import SchemaTabs from "@theme/SchemaTabs";
+import TabItem from "@theme/TabItem";
+import Export from "@theme/ApiExplorer/Export";
+
+<span
+  className={"theme-doc-version-badge badge badge--secondary"}
+  children={"Version: 0.1.0"}
+>
+</span>
+
+<Heading
+  as={"h1"}
+  className={"openapi__heading"}
+  children={"Storefront BFF API"}
+>
+</Heading>
+
+
+
+The only storefront edge (/api/storefront). A backend-for-frontend that composes the storefront contexts (product-discovery, shopping-cart, checkout, customer-ordering, pricing) and the network's delivery-promise quote. It has no domain model, no database and no Kafka. Each route is a thin composition over an upstream REST API; upstream answers, including their RFC 9457 problem details, are relayed unchanged. The BFF mints an Idempotency-Key per user action (deterministic per route, subject and payload inside a ten minute window, or pinned by the page with the X-Action-Id header) and forwards it to upstream commands. Cart, shopper and last checkout ids live in the sf_state cookie: state, NOT authentication, and there is no authentication anywhere. Saved addresses pass through without being stored or logged, request and response bodies are never logged, and only PSP payment-method tokens are accepted, never card data. Every route has a time budget (2 s queries, 5 s commands, 15 s checkout confirm); an expired budget answers 504 and is never retried.
+
+<div
+  style={{"display":"flex","flexDirection":"column","marginBottom":"var(--ifm-paragraph-margin-bottom)"}}
+>
+  <h3
+    style={{"marginBottom":"0.25rem"}}
+  >
+    Contact
+  </h3><span>
+    storefront-bff maintainers: 
+  </span><span>
+    URL: [https://github.com/IQVO/storefront-bff](https://github.com/IQVO/storefront-bff)
+  </span>
+</div>
+      

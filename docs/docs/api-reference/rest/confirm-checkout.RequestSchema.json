@@ -1,0 +1,1 @@
+{"title":"Body","body":{"required":true,"content":{"application/json":{"schema":{"type":"object","required":["paymentMethodToken"],"additionalProperties":false,"properties":{"paymentMethodToken":{"type":"string","maxLength":256,"description":"The PSP token from the hosted fields; never a card number."}},"title":"ConfirmCheckoutRequest"}}}}}

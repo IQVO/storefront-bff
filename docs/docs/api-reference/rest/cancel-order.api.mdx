@@ -1,0 +1,70 @@
+---
+id: cancel-order
+title: "Request the cancellation of an order"
+description: "Relays customer-ordering POST /orders/{orderId}:cancel. Refused upstream (409 cancel-after-lock) once a group is locked."
+sidebar_label: "Request the cancellation of an order"
+hide_title: true
+hide_table_of_contents: true
+api: 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
+sidebar_class_name: "post api-method"
+info_path: docs/api-reference/rest/storefront-bff-api
+custom_edit_url: null
+hide_send_button: true
+---
+
+import MethodEndpoint from "@theme/ApiExplorer/MethodEndpoint";
+import ParamsDetails from "@theme/ParamsDetails";
+import RequestSchema from "@theme/RequestSchema";
+import StatusCodes from "@theme/StatusCodes";
+import OperationTabs from "@theme/OperationTabs";
+import TabItem from "@theme/TabItem";
+import Heading from "@theme/Heading";
+import Translate from "@docusaurus/Translate";
+
+<Heading
+  as={"h1"}
+  className={"openapi__heading"}
+  children={"Request the cancellation of an order"}
+>
+</Heading>
+
+<MethodEndpoint
+  method={"post"}
+  path={"/orders/{id}:cancel"}
+  context={"endpoint"}
+>
+  
+</MethodEndpoint>
+
+
+
+Relays customer-ordering POST /orders/\{orderId\}:cancel. Refused upstream (409 cancel-after-lock) once a group is locked.
+
+<Heading
+  id={"request"}
+  as={"h2"}
+  className={"openapi-tabs__heading"}
+>
+  <Translate id="theme.openapi.request.title">Request</Translate>
+</Heading>
+
+<ParamsDetails
+  {...require("./cancel-order.ParamsDetails.json")}
+>
+  
+</ParamsDetails>
+
+<RequestSchema
+  {...require("./cancel-order.RequestSchema.json")}
+>
+  
+</RequestSchema>
+
+<StatusCodes
+  {...require("./cancel-order.StatusCodes.json")}
+>
+  
+</StatusCodes>
+
+
+      
