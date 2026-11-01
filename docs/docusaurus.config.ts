@@ -6,7 +6,7 @@ import type * as OpenApiPlugin from 'docusaurus-plugin-openapi-docs';
 const config: Config = {
   title: 'Storefront BFF',
   tagline:
-    'Storefront BFF: a Generic bounded context of the storefront domain (warehouse-systems).',
+    'The stateless storefront edge: composes six upstream REST services under /api/storefront (Generic, warehouse-systems).',
   favicon: 'img/favicon.svg',
 
   future: {
