@@ -40,7 +40,7 @@ flowchart LR
     WEB -. "bffUrl, in cluster" .-> BFF
     KONG --> BFF
     BFF -->|"GET products, categories"| PD
-    BFF -->|"POST delivery-offers:quote"| DP
+    BFF -->|"POST delivery-quotes"| DP
     BFF -->|"GET delivery-charge-schedules/current"| PR
     BFF -->|"carts, lines, delivery"| SC
     BFF -->|"checkout-sessions, confirm"| CK
@@ -72,24 +72,26 @@ call is refused before a request is built.
 | Upstream | Env var | Routes the BFF calls | Used by | Status |
 | --- | --- | --- | --- | --- |
 | product-discovery | `PRODUCT_DISCOVERY_URL` | `GET /products`, `GET /products/{id}`, `GET /categories` | search, product page, category tree | **Built + verified** |
-| delivery-promise | `DELIVERY_PROMISE_URL` | `POST /delivery-offers:quote` | `POST /products/{id}:delivery-dates` | **Built + verified** |
+| delivery-promise | `DELIVERY_PROMISE_URL` | `POST /delivery-quotes` | `POST /products/{id}/delivery-date-quotes` | **Built + verified** |
 | pricing | `PRICING_URL` | `GET /delivery-charge-schedules/current` | the charge per tier on delivery dates | **Built + verified** |
-| shopping-cart | `SHOPPING_CART_URL` | `POST /carts`, `GET /carts`, `GET /carts/{id}`, `POST /carts/{id}/lines`, `POST /carts/{id}/lines/{item}:set-quantity`, `POST /carts/{id}/lines/{item}:remove`, `POST /carts/{id}:set-destination`, `POST /carts/{id}:quote-delivery`, `POST /carts/{id}:select-delivery` | the cart routes | **Built + verified** |
-| checkout | `CHECKOUT_URL` | `POST /checkout-sessions`, `GET /checkout-sessions/{id}`, `POST /checkout-sessions/{id}:confirm` | open, poll, confirm | **Built + verified** |
-| customer-ordering | `CUSTOMER_ORDERING_URL` | `GET /orders`, `GET /orders/{id}`, `GET /orders/{id}/tracking`, `POST /orders/{id}:cancel`, `GET /shoppers`, `POST /shoppers`, `GET /shoppers/{id}`, `POST /shoppers/{id}/addresses` | orders, register, e-mail "login", `/me`, addresses | **Built + verified** |
+| shopping-cart | `SHOPPING_CART_URL` | `POST /carts`, `GET /carts`, `GET /carts/{id}`, `POST /carts/{id}/lines`, `PUT /carts/{id}/lines/{item}`, `DELETE /carts/{id}/lines/{item}`, `PUT /carts/{id}/destination`, `POST /carts/{id}/delivery-quotes`, `PUT /carts/{id}/delivery-selection` | the cart routes | **Built + verified** |
+| checkout | `CHECKOUT_URL` | `POST /checkout-sessions`, `GET /checkout-sessions/{id}`, `POST /checkout-sessions/{id}/confirmations` | open, poll, confirm | **Built + verified** |
+| customer-ordering | `CUSTOMER_ORDERING_URL` | `GET /orders`, `GET /orders/{id}`, `GET /orders/{id}/tracking`, `POST /orders/{id}/cancellations`, `GET /shoppers`, `POST /shoppers`, `GET /shoppers/{id}`, `POST /shoppers/{id}/addresses` | orders, register, e-mail "login", `/me`, addresses | **Built + verified** |
 
 Public paths map to upstream verbs in
 [ADR 0002](/docs/adr/0002-storefront-bff-assumptions) (A1): for example
-`PATCH /carts/{id}/lines/{item}` is `POST .../lines/{item}:set-quantity`, and
+`PATCH /carts/{id}/lines/{item}` is `PUT .../lines/{item}`, and
 `POST /checkout` is `POST /checkout-sessions`.
 
 ### What every call carries
 
 - `Accept: application/json, application/problem+json`; `Content-Type:
   application/json` when there is a body.
-- `Idempotency-Key` on every non-GET: `sf-` plus 40 hex characters, deterministic
-  for route, subject (cookie shopper, else cart, else `anonymous`), the page's
-  `X-Action-Id` or the body digest plus a 10-minute window. Queries carry none.
+- `Idempotency-Key` on every command of a keyed edge request: `sf-` plus 40 hex
+  characters, deterministic for route, subject (cookie shopper, else cart, else
+  `anonymous`) and the page's own `Idempotency-Key`. Queries carry none.
+- The provider's `Idempotency-Replayed: true` is relayed on the edge answer, and
+  its 409 `idempotency-key-reused` problem passes through unchanged.
 - The `traceparent` of the edge request (client span from `otelhttp`), so one
   trace crosses the BFF hop.
 - No `Authorization`, cookie or other caller header: nothing is forwarded except
@@ -99,7 +101,7 @@ Public paths map to upstream verbs in
 
 | BFF route | Calls | Required / optional |
 | --- | --- | --- |
-| `POST /products/{id}:delivery-dates` | delivery-promise quote, then pricing charge schedule | the quote is required, the charge schedule is optional (tiers lose `charge` and `freeOver`) |
+| `POST /products/{id}/delivery-date-quotes` | delivery-promise quote, then pricing charge schedule | the quote is required, the charge schedule is optional (tiers lose `charge` and `freeOver`) |
 | `GET /orders/{id}` | order, then order tracking, then the cookie's checkout session | the order is required; tracking and totals are optional, totals only when the session placed this order |
 | every other route | exactly one upstream call | the upstream answer is relayed untouched |
 
@@ -114,9 +116,10 @@ Public paths map to upstream verbs in
 | An upstream is down but the rest are up | Only routes that need it fail. Readiness stays green on purpose, so one slow upstream cannot take the whole edge out of rotation (ADR 0002, A8). |
 | One URL is missing or not an absolute `http(s)` URL | The process refuses to boot and names it. |
 
-A retry of a command is safe: the same `X-Action-Id` (or the same body inside the
-same 10-minute window) reaches the upstream with the same `Idempotency-Key`, so
-the upstream answers from its stored result.
+A retry of a command is safe: the same page `Idempotency-Key` reaches the
+upstream with the same minted key, so the upstream answers from its stored
+result (`Idempotency-Replayed: true`). The same key with a different body is
+answered 409 `idempotency-key-reused` by the upstream.
 
 ## Absent edges (on purpose)
 
@@ -124,7 +127,7 @@ the upstream answers from its stored result.
   reserves the namespace `com.retailnetwork.storefront.storefront-bff.<entity>.<Event>`
   and the topic `retailnetwork.storefront-bff.events`; no event uses them.
 - **No restricted network routes.** `GET /orders/{id}/ship-to`, `POST /promises`,
-  promise `:confirm` and `:cancel`, `POST /inventory-feeds`, policy routes and
+  promise confirmations and cancellations, `POST /inventory-feeds`, policy routes and
   `POST /checkout` of customer-ordering (called by the checkout service, not the
   browser edge) are not on the allowlist. `TestNoInOrgNetworkRoute` and
   `TestAllowlistHoldsNoRestrictedRoute` fail the build if they appear.

@@ -34,9 +34,9 @@ flowchart LR
     gw -->|"3. Allowed? budget 2 s"| dom
     gw -->|"4. qry: GET /products"| pd
     pd -->|"5. reply relayed untouched"| web
-    web -->|"6. qry: POST /products/p1:delivery-dates"| http
+    web -->|"6. qry: POST /products/p1/delivery-date-quotes"| http
     http -->|"7. DeliveryDates"| gw
-    gw -->|"8. qry: POST /delivery-offers:quote"| dp
+    gw -->|"8. qry: POST /delivery-quotes"| dp
     gw -->|"9. qry: GET /delivery-charge-schedules/current"| pr
     gw -->|"10. tiers with window, timeZone, charge"| web
 ```
@@ -60,14 +60,14 @@ flowchart LR
     sc -->|"4. cartId"| gw
     gw -->|"5. set c=cartId"| ck
     ck -->|"6. Set-Cookie with the reply"| web
-    web -->|"7. cmd: POST /carts/c1/lines, X-Action-Id"| gw
+    web -->|"7. cmd: POST /carts/c1/lines, Idempotency-Key"| gw
     gw -->|"8. cmd: POST /carts/c1/lines"| sc
     web -->|"9. cmd: POST /carts/c1/destination"| gw
-    gw -->|"10. cmd: POST /carts/c1:set-destination"| sc
-    web -->|"11. cmd: POST /carts/c1/delivery:quote"| gw
-    gw -->|"12. cmd: POST /carts/c1:quote-delivery"| sc
-    web -->|"13. cmd: POST /carts/c1/delivery:select"| gw
-    gw -->|"14. cmd: POST /carts/c1:select-delivery"| sc
+    gw -->|"10. cmd: PUT /carts/c1/destination"| sc
+    web -->|"11. cmd: POST /carts/c1/delivery-quotes"| gw
+    gw -->|"12. cmd: POST /carts/c1/delivery-quotes"| sc
+    web -->|"13. cmd: PUT /carts/c1/delivery-selection"| gw
+    gw -->|"14. cmd: PUT /carts/c1/delivery-selection"| sc
 ```
 
 Source: `internal/application/usecases/carts.go`, `gateway.go`,
@@ -89,9 +89,9 @@ flowchart LR
     gw -->|"3. cmd: POST /checkout-sessions"| ck
     ck -->|"4. sessionId"| gw
     gw -->|"5. set k=sessionId"| ck0
-    web -->|"6. cmd: POST /checkout/k1:confirm paymentMethodToken"| gw
+    web -->|"6. cmd: POST /checkout/k1/confirmations paymentMethodToken"| gw
     gw -->|"7. refuse card-shaped data"| guard
-    gw -->|"8. cmd: POST /checkout-sessions/k1:confirm, budget 15 s"| ck
+    gw -->|"8. cmd: POST /checkout-sessions/k1/confirmations, budget 15 s"| ck
     ck -->|"9. 200 or 202, relayed"| web
     web -->|"10. qry: GET /checkout/k1 while 202"| gw
     gw -->|"11. qry: GET /checkout-sessions/k1"| ck
@@ -113,8 +113,8 @@ flowchart LR
     gw -->|"3. qry: GET /orders/o1/tracking"| co
     gw -->|"4. qry: GET /checkout-sessions/k1 from the cookie"| ck
     gw -->|"5. order plus tracking plus totals"| web
-    web -->|"6. cmd: POST /orders/o1:cancel reason"| gw
-    gw -->|"7. cmd: POST /orders/o1:cancel"| co
+    web -->|"6. cmd: POST /orders/o1/cancellations reason"| gw
+    gw -->|"7. cmd: POST /orders/o1/cancellations"| co
     co -->|"8. reply relayed"| web
 ```
 

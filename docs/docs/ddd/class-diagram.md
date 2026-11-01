@@ -66,7 +66,7 @@ classDiagram
     class Keys {
         <<functions>>
         MintKey(route, subject, action, body, now) string
-        KeyWindow 10 minutes
+        MaxClientKeyLen 128
     }
     class CardGuard {
         <<functions>>

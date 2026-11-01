@@ -48,7 +48,7 @@ flowchart LR
     end
     in0 -->|"cmd and qry - REST<br/>/api/storefront, 23 routes"| BC
     BC -.->|"qry - REST<br/>products, categories"| o1
-    BC -->|"qry - REST<br/>delivery-offers:quote"| o2
+    BC -->|"qry - REST<br/>delivery-quotes"| o2
     BC -.->|"qry - REST<br/>delivery-charge-schedules/current"| o3
     BC -->|"cmd and qry - REST<br/>carts"| o4
     BC -->|"cmd and qry - REST<br/>checkout-sessions"| o5
@@ -99,7 +99,7 @@ cookie, and never store or log what passes through.
 | Collaborator | Message | Kind | Channel | Status |
 | --- | --- | --- | --- | --- |
 | product-discovery | search, product, categories | queries | `GET /products`, `/products/{id}`, `/categories` | built, verified |
-| delivery-promise | quote delivery offers | query | `POST /delivery-offers:quote` | built, verified |
+| delivery-promise | quote delivery offers | query | `POST /delivery-quotes` | built, verified |
 | pricing | current delivery charge schedule | query | `GET /delivery-charge-schedules/current` | built, verified |
 | shopping-cart | create, read, list, lines, destination, quote, select | commands and queries | nine allowlisted routes | built, verified |
 | checkout | open, read, confirm | commands and queries | `/checkout-sessions` routes | built, verified |
@@ -120,7 +120,7 @@ checkout session, PSP token. Full glossary:
 | --- | --- |
 | Which upstream routes may be called | only the 25 templates of `allowed` in `allowlist.go`; ship-to, promise create/confirm/cancel, inventory feeds, policy routes are refused |
 | How long a request may take | `Budgets`: 2 s query, 5 s command, 15 s confirm; expiry is 504 and not retried |
-| How a retry stays safe | `MintKey`: `sf-` + 40 hex of SHA-256 over route, subject, action or body digest plus a 10-minute window |
+| How a retry stays safe | `MintKey`: `sf-` + 40 hex of SHA-256 over route, subject and the page's required `Idempotency-Key`; the provider replays or answers 409 `idempotency-key-reused` |
 | What the cookie holds | `State{CartID, ShopperID, CheckoutID}`, ids matching `ValidID`; nothing trusts it for access |
 | What is never accepted | card-shaped keys, a Luhn-valid token, unknown JSON fields on composed bodies, NUL characters, bodies over 1 MiB |
 | What is never logged | request and response bodies, cookies, e-mails, addresses |
