@@ -62,7 +62,7 @@ in `rest.New`: `base URL of <service> is missing or not an absolute http(s) URL`
 
 `GET /healthz` and `GET /readyz` are static `200 {"status":"ok"}` handlers
 (`internal/adapters/inbound/http/server.go`). Readiness does **not** probe the
-upstreams: a slow or dead upstream shows up as request errors (`502`/`504`), not
+upstreams: a slow or dead upstream shows up as request errors (`503`/`504`), not
 as a pod restart. The configuration check is the boot itself: a pod with a
 missing URL never becomes ready because the process exits.
 

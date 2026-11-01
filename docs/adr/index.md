@@ -15,7 +15,7 @@ immutable; a changed decision gets a new ADR that supersedes the old one. The
 | ADR | Title | Status |
 | --- | --- | --- |
 | [0001](/docs/adr/0001-storefront-bff-bounded-context) | Storefront BFF is a bounded context of the storefront domain | Accepted (bootstrap). Design source: warehouse-docs `storefront/model/model.yaml`, context `storefront-bff`. |
-| [0002](/docs/adr/0002-storefront-bff-assumptions) | Storefront BFF design assumptions | Accepted. Design source: warehouse-docs `storefront/model/model.yaml` (context `storefront-bff`), the |
+| [0002](/docs/adr/0002-storefront-bff-assumptions) | Storefront BFF design assumptions | Accepted. Design source: warehouse-docs `storefront/model/model.yaml` (context `storefront-bff`), the campaign plan section 4.7 and the upstream OpenAPI contracts. |
 | [0003](/docs/adr/0003-fleet-observability-standard) | Adopt the fleet observability standard (logs, metrics, traces) | Accepted (2026-10-29). |
 | [0004](/docs/adr/0004-bff-relays-the-category-tree) | The BFF relays the category tree | Accepted (2026-10-29). |
 | [0005](/docs/adr/0005-delivery-dates-carry-the-window-time-zone) | Delivery dates carry the window's time zone | Accepted (2026-10-30). |
