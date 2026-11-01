@@ -75,7 +75,7 @@ wrapped so a record written with a span context carries `trace_id` and
 | `http request` | INFO (2xx/3xx), WARN (4xx), ERROR (5xx) | `method`, `route`, `status`, `duration_ms`, `bytes`, `request_id` (+ `trace_id`, `span_id`) | once per request except `/healthz` and `/readyz`; `route` is the pattern, never the raw path (ids) |
 | `storefront-bff listening` | INFO | `addr` | listener bound |
 | `telemetry configured` | INFO | `service_name`, `otlp_endpoint` | after OTel setup |
-| `handler panic` | ERROR | `method`, `path` | a handler panicked; the panic value is deliberately not logged; the client gets a 500 problem |
+| `handler panic` | ERROR | `method`, `path` | a handler panicked; `path` has CR and LF stripped (`sanitizeLog`, so a crafted path cannot forge a log line); the panic value is deliberately not logged; the client gets a 500 problem |
 | `telemetry flush failed on shutdown` | WARN | `error` | flush exceeded its 5 s |
 | `storefront-bff stopped` | ERROR | `error` | boot failure or serve error; exit code 1 |
 
