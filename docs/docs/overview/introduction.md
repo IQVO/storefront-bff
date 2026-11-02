@@ -105,3 +105,7 @@ packages are scaffold leftovers `cmd/api` never wires), any persistence.
 | Read the decisions | [ADR index](/docs/adr) |
 
 Published at [https://iqvo.github.io/storefront-bff/](https://iqvo.github.io/storefront-bff/).
+
+:::note[Disclaimer]
+This project is a domain-driven design study. It is not associated with, endorsed by or affiliated with any company, and it uses no company's code, data, logos or trademarks. All names, figures and examples are illustrative or synthetic.
+:::
