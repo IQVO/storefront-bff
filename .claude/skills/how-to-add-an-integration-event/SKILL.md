@@ -17,7 +17,7 @@ shared-broker reality has already caused a real incident once.
 ### 1. Is it actually cross-service?
 
 Not every domain event this service raises belongs on the wire. Check
-`internal/adapters/outbound/kafka/writer.go`'s doc comment — this repo
+the Kafka writer's doc comment (this repo has none yet) — a repo
 forwards only `StockReserved`/`ReservationRevoked`; everything else is a
 local concern published only to the Postgres outbox
 (a Postgres event publisher; this service has none) for audit, not
@@ -65,8 +65,8 @@ exist as a domain event the aggregate raises — publishing wires an
 EXISTING domain event onto Kafka, it doesn't invent a new payload shape at
 the adapter layer). In the Kafka publisher adapter:
 
-- Encode ONLY through `internal/adapters/kafka/cloudevents` (copied from
-  this template's `templates/cloudevents/cloudevents.go.tmpl`):
+- Encode ONLY through the helper copied from
+  this template's `templates/cloudevents/cloudevents.go.tmpl`:
   ```go
   value, err := cloudevents.New(cloudevents.Spec{
       ID:        evt.ID(),            // minted once; the outbox row stores it
