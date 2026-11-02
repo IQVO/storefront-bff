@@ -12,7 +12,8 @@ func orderingCall(method, path string, body []byte) composition.Call {
 	return composition.Call{Service: composition.CustomerOrdering, Method: method, Path: path, Body: body}
 }
 
-// ListOrders relays GET /orders; the shopper defaults to the cookie's.
+// ListOrders relays GET /orders (limit, cursor); the shopper defaults to the
+// cookie's. The answer is the provider's {items, nextCursor}.
 func (g *Gateway) ListOrders(ctx context.Context, a Actor, q url.Values) (Outcome, error) {
 	shopper := q.Get("shopperId")
 	if shopper == "" {
@@ -22,11 +23,7 @@ func (g *Gateway) ListOrders(ctx context.Context, a Actor, q url.Values) (Outcom
 		return Outcome{}, composition.ErrNoSession
 	}
 	fwd := url.Values{"shopperId": {shopper}}
-	for _, k := range []string{"after", "limit"} {
-		if v := q.Get(k); v != "" {
-			fwd.Set(k, v)
-		}
-	}
+	forward(fwd, q, "limit", "cursor")
 	c := orderingCall("GET", "/orders", nil)
 	c.Query = fwd
 	return g.relay(ctx, composition.Query, a, c)
@@ -100,11 +97,11 @@ type cancelRequest struct {
 
 const maxReasonLen = 200
 
-// CancelOrder relays POST /orders/{id}:cancel.
+// CancelOrder relays POST /orders/{id}/cancellations.
 func (g *Gateway) CancelOrder(ctx context.Context, a Actor, id string, body []byte) (Outcome, error) {
 	var req cancelRequest
 	if !composition.ValidID(id) || decodeStrict(body, &req) != nil || req.Reason == "" || len(req.Reason) > maxReasonLen {
 		return Outcome{}, composition.Invalid("order id must be valid and body must be {reason} of at most 200 characters")
 	}
-	return g.relay(ctx, composition.Command, a, orderingCall("POST", "/orders/"+id+":cancel", body))
+	return g.relay(ctx, composition.Command, a, orderingCall("POST", "/orders/"+id+"/cancellations", body))
 }

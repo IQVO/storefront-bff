@@ -96,7 +96,7 @@ func TestRouteNotAllowedIsItsOwnProblem(t *testing.T) {
 
 func TestEdgeValidationAndSessionProblems(t *testing.T) {
 	g := newRig()
-	rec := g.do("POST", "/checkout/k1:confirm", `{"paymentMethodToken":"4111111111111111"}`, stateCookie)
+	rec := g.do("POST", "/checkout/k1/confirmations", `{"paymentMethodToken":"4111111111111111"}`, stateCookie)
 	if rec.Code != 422 || !strings.Contains(rec.Body.String(), "validation-failed") || strings.Contains(rec.Body.String(), "4111") {
 		t.Fatalf("card number: %d %s", rec.Code, rec.Body)
 	}

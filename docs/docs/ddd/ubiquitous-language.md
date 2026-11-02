@@ -30,8 +30,7 @@ fixed by `apis/openapi.yaml` or an ADR rather than by a Go identifier.
 | **Budget** | The whole-request time limit of a route class; expiry is a 504, never retried. | `composition.Budgets`, `DefaultBudgets` |
 | **Class (of a route)** | Query (2 s), Command (5 s) or Confirm (15 s). | `composition.Class`, `Query`, `Command`, `Confirm` |
 | **Idempotency-Key** | The header the BFF mints for every non-GET upstream call. | `composition.MintKey`, `Call.IdempotencyKey` |
-| **Key window** | The 10-minute retry window inside which an identical request mints the same key. | `composition.KeyWindow` |
-| **Action id** | The optional `X-Action-Id` header a page sets per click; it pins the key and ignores body and window. | `Actor.ActionID`, `X-Action-Id` *(contract)* |
+| **Page key** | The `Idempotency-Key` the page sends on every POST and PATCH (fresh per user submit, reused on retry); the upstream key is minted from it. | `Actor.IdempotencyKey`, `Idempotency-Key` *(contract)* |
 | **Subject** | The stable owner part of a key: the cookie's shopper, else cart, else `anonymous`. | `Actor.subject` |
 | **State (cookie)** | The shopper's browsing state: open cart, shopper and last checkout session ids. State, not authentication. | `composition.State`, `CookieName` (`sf_state`) |
 | **Valid id** | 1 to 128 characters of `[A-Za-z0-9._-]` starting with an alphanumeric; it cannot alter an upstream path. | `composition.ValidID` |

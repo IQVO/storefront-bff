@@ -79,7 +79,7 @@ func run(ctx context.Context, getenv func(string) string, log *slog.Logger, read
 	if err != nil {
 		return err
 	}
-	gw := usecases.NewGateway(up, cfg.Budgets, time.Now)
+	gw := usecases.NewGateway(up, cfg.Budgets)
 	srv := &http.Server{
 		Handler:           inbound.NewServer(gw, log, cfg.CookieSecure, tel.serviceName).Handler(),
 		ReadHeaderTimeout: 5 * time.Second,

@@ -83,8 +83,12 @@ go test ./cmd/api -tags=integration -run TestIntegrationShopperJourney -v
   and the optional-leg degradation of order detail and delivery dates.
   `boundaries_test.go` pins input validation (ids, `postalPrefix`, reason length).
 - **HTTP adapter**: `httptest` over the real router. `routes_test.go` checks that
-  every route maps to its upstream call and that commands carry a minted key
-  (and that `X-Action-Id` pins it); `behaviour_test.go` covers the state cookie,
+  every route maps to its upstream call and that commands carry a key minted
+  from the page's `Idempotency-Key`; `idempotency_test.go` pins the 400
+  `idempotency-key-required`/`-invalid` answers, the relayed
+  `Idempotency-Replayed` header, the pass-through of a provider 409
+  `idempotency-key-reused`, `TestRetiredRoutesAreGone` and the paged-list
+  parameter checks; `behaviour_test.go` covers the state cookie,
   pass-through of upstream problems, the problem mapping, NUL and oversize body
   refusal, panic to 500, health endpoints and that the access log carries no
   body, query or cookie.
@@ -123,8 +127,8 @@ off `DATABASE_URL`/`KAFKA_BROKERS`.
 `efficacy: 98` and `mutant-coverage: 97`. Gremlins fails when the measured value is
 **less than or equal to** the threshold, so a threshold sits below what the code
 achieves. The file records a measurement of 2026-10-26 over `./internal/domain`:
-69 mutants, efficacy 100.00 %, mutator coverage 98.57 % (one constant expression,
-`KeyWindow`, cannot be instrumented). Only the pure composition package is
+69 mutants, efficacy 100.00 %, mutator coverage 98.57 % (one constant expression
+could not be instrumented). Only the pure composition package is
 mutated; use cases and adapters are not. The scheduled `mutation` job (Monday
 06:00 UTC and manual dispatch) mutates `./internal/domain` as a whole; a failing
 scheduled run opens or refreshes a `harness:red` issue

@@ -54,7 +54,7 @@ flowchart LR
 
     h1{{"HOTSPOT: a 202 on confirm means placement in doubt, the page must poll"}}:::hot
     h2{{"HOTSPOT: readiness never probes the upstreams"}}:::hot
-    h3{{"HOTSPOT: a retry across the 10-minute window mints a new key without an X-Action-Id"}}:::hot
+    h3{{"HOTSPOT: the page must reuse its Idempotency-Key on a retry, or the retry is a new action"}}:::hot
 
     shopper --> c1 --> p1 --> u1 --> r1
     shopper --> c2 --> p1
@@ -100,8 +100,8 @@ ownership.
 
 | # | Hotspot | State |
 | --- | --- | --- |
-| 1 | **A `202` on confirm.** The payment outcome is in doubt; the page polls `GET /checkout/{id}` and may re-send the same confirm with the same `X-Action-Id`. The BFF does not decide. | By design ([ADR 0002](/docs/adr/0002-storefront-bff-assumptions)) |
+| 1 | **A `202` on confirm.** The payment outcome is in doubt; the page polls `GET /checkout/{id}` and may re-send the same confirm with the same `Idempotency-Key`. The BFF does not decide. | By design ([ADR 0002](/docs/adr/0002-storefront-bff-assumptions)) |
 | 2 | **Readiness is a static 200.** A dead upstream shows up as 503/504 and on Kong's 5xx ratio, never as a pod restart (A8), so one slow upstream cannot take the whole edge out of rotation. | Accepted by ADR 0002 A8 |
-| 3 | **Key window boundary.** Without `X-Action-Id`, an identical retry that crosses a 10-minute boundary mints a new key; the upstream then dedupes only through its own business rules (A3). | Accepted by ADR 0002 A3, mitigated by the optional header |
+| 3 | **Page-owned key.** The page sends one `Idempotency-Key` per user submit and reuses it on retry; a retry with a fresh key is a new action. The same key with a different body is answered 409 `idempotency-key-reused` by the provider. | By design ([ADR 0006](/docs/adr/0006-adopt-the-fleet-rest-api-guideline), supersedes ADR 0002 A3) |
 | 4 | **Relays are unshielded.** An upstream field change reaches the page untouched, except in the two composed routes (ADR 0004, ADR 0005). | Accepted |
 | 5 | **No event, no push.** The page cannot learn that an order changed without asking again. | By design; revisit only with a real need |

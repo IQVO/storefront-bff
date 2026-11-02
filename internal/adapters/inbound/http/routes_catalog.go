@@ -8,6 +8,9 @@ import (
 
 func (s *Server) catalogRoutes(r chi.Router) {
 	r.Get("/products", func(w http.ResponseWriter, r *http.Request) {
+		if !pageParams(w, r, "q", "categoryId", "inStock", "priceMin", "priceMax", "sort") {
+			return
+		}
 		out, err := s.g.SearchProducts(r.Context(), r.URL.Query())
 		s.respond(w, out, err)
 	})
@@ -19,8 +22,8 @@ func (s *Server) catalogRoutes(r chi.Router) {
 		out, err := s.g.GetProduct(r.Context(), chi.URLParam(r, "id"))
 		s.respond(w, out, err)
 	})
-	r.Post("/products/{id}:delivery-dates", func(w http.ResponseWriter, r *http.Request) {
-		out, err := s.g.DeliveryDates(r.Context(), chi.URLParam(r, "id"), readBody(r))
+	r.Post("/products/{id}/delivery-date-quotes", requireKey(func(w http.ResponseWriter, r *http.Request) {
+		out, err := s.g.DeliveryDates(r.Context(), actor(r), chi.URLParam(r, "id"), readBody(r))
 		s.respond(w, out, err)
-	})
+	}))
 }

@@ -3,7 +3,6 @@ package usecases
 import (
 	"context"
 	"sync"
-	"time"
 
 	"github.com/IQVO/storefront-bff/internal/domain/composition"
 )
@@ -46,8 +45,9 @@ func (f *fakeUp) Do(_ context.Context, c composition.Call) (composition.Reply, e
 
 func (f *fakeUp) last() composition.Call { return f.calls[len(f.calls)-1] }
 
-var fixedNow = time.Date(2026, 10, 26, 12, 0, 0, 0, time.UTC)
+// keyed is an actor whose page sent an Idempotency-Key.
+var keyed = Actor{IdempotencyKey: "k-1"}
 
 func newGateway(f *fakeUp) *Gateway {
-	return NewGateway(f, composition.DefaultBudgets(), func() time.Time { return fixedNow })
+	return NewGateway(f, composition.DefaultBudgets())
 }

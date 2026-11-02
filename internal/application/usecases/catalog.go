@@ -11,16 +11,12 @@ import (
 
 // searchParams are the product-search filters the BFF forwards; anything else
 // in the query string is dropped.
-var searchParams = []string{"q", "categoryId", "inStock", "priceMin", "priceMax", "sort", "after", "limit"}
+var searchParams = []string{"q", "categoryId", "inStock", "priceMin", "priceMax", "sort", "limit", "cursor"}
 
 // SearchProducts relays GET /products to product-discovery.
 func (g *Gateway) SearchProducts(ctx context.Context, q url.Values) (Outcome, error) {
 	fwd := url.Values{}
-	for _, k := range searchParams {
-		if v := q.Get(k); v != "" {
-			fwd.Set(k, v)
-		}
-	}
+	forward(fwd, q, searchParams...)
 	return g.relay(ctx, composition.Query, Actor{}, composition.Call{
 		Service: composition.ProductDiscovery, Method: "GET", Path: "/products", Query: fwd,
 	})
@@ -68,7 +64,9 @@ func validPostalPrefix(s string) bool {
 // DeliveryDates quotes one unit of the product for a postal prefix and joins
 // the per-tier delivery charge. The quote is required; a missing charge
 // schedule only leaves the charge out.
-func (g *Gateway) DeliveryDates(ctx context.Context, productID string, body []byte) (Outcome, error) {
+// The Idempotency-Replayed flag of the quote (the one write hop) rides on the
+// composed answer.
+func (g *Gateway) DeliveryDates(ctx context.Context, a Actor, productID string, body []byte) (Outcome, error) {
 	var req deliveryDatesRequest
 	if err := decodeStrict(body, &req); err != nil || !validPostalPrefix(req.PostalPrefix) || !composition.ValidID(productID) {
 		return Outcome{}, composition.Invalid("postalPrefix is required (a postal prefix, not an address) and the product id must be valid")
@@ -82,8 +80,8 @@ func (g *Gateway) DeliveryDates(ctx context.Context, productID string, body []by
 	if err != nil {
 		return Outcome{}, err
 	}
-	reply, err := g.call(ctx, Actor{}, composition.Call{
-		Service: composition.DeliveryPromise, Method: "POST", Path: "/delivery-offers:quote", Body: quote,
+	reply, err := g.call(ctx, a, composition.Call{
+		Service: composition.DeliveryPromise, Method: "POST", Path: "/delivery-quotes", Body: quote,
 	})
 	if err != nil || !reply.OK() {
 		return Outcome{Reply: reply}, err
@@ -93,5 +91,7 @@ func (g *Gateway) DeliveryDates(ctx context.Context, productID string, body []by
 	if err != nil {
 		return Outcome{}, composition.UpstreamError(composition.ErrUpstreamUnavailable, composition.DeliveryPromise)
 	}
-	return Outcome{Reply: jsonReply(200, out)}, nil
+	composed := jsonReply(200, out)
+	composed.Replayed = reply.Replayed
+	return Outcome{Reply: composed}, nil
 }

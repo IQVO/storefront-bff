@@ -77,12 +77,14 @@ Public paths are REST-style; the BFF maps them to the upstream custom verbs
   checkout session) as an unsigned query string: `HttpOnly`, `SameSite=Lax`,
   `Path=/api/storefront`, 30 days, `Secure` unless `COOKIE_SECURE=false`. It is
   state, not authentication. A malformed cookie decodes to an empty state.
-- **`Idempotency-Key`.** The client never sends it. The BFF mints
-  `sf-` + 40 hex characters for each command and forwards it. A page pins the
-  identity of one click with the optional `X-Action-Id` request header (a valid
-  id of at most 64 characters), after which body and time window are ignored;
-  without it the key is deterministic for route, subject and body inside a
-  10-minute window.
+- **`Idempotency-Key`.** Required on every `POST` and `PATCH` (1-128 visible
+  ASCII characters): a missing key is `400 idempotency-key-required`, a malformed
+  one `400 idempotency-key-invalid`. `PUT` and `DELETE` take none. The client
+  mints one key per user action and reuses it on retry. The BFF stores nothing:
+  it derives the upstream key from route, subject and the client's key, so a
+  retry reaches the provider with the same key. A provider's
+  `409 idempotency-key-reused` and its `Idempotency-Replayed: true` header pass
+  through unchanged.
 - **Time budgets.** 2 s for queries, 5 s for commands, 15 s for checkout
   confirm, each for the whole composition; expiry is `504 gateway-timeout` and
   is never retried.

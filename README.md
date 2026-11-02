@@ -125,21 +125,25 @@ through without being logged.
 Contract: [`apis/openapi.yaml`](apis/openapi.yaml) (OpenAPI; also mirrored on
 the warehouse-docs storefront site). The edge answers with or without the
 `/api/storefront` prefix (the binary strips its `BasePath`). Errors are
-RFC 9457 `application/problem+json`. The BFF mints a fresh
-`Idempotency-Key` per user action and replays it for
-[10 minutes](docs/adr/0002-storefront-bff-assumptions.md) (the retry window);
+RFC 9457 `application/problem+json`. Every `POST` and `PATCH` requires the
+page's `Idempotency-Key` (a fresh one per user submit, reused on retry; missing:
+400 `idempotency-key-required`). The BFF stores nothing: it forwards a key minted
+from (route, subject, page key), relays `Idempotency-Replayed: true` when the
+provider replayed, and passes the provider's 409 `idempotency-key-reused`
+through unchanged ([ADR 0006](docs/adr/0006-adopt-the-fleet-rest-api-guideline.md)).
+Lists answer `{items, nextCursor}` and take `limit` and `cursor`;
 cart and shopper ids ride in the `sf_state` cookie (state, not
 authentication) — there is no server-side session store.
 
 | Method and path | Composes |
 | --- | --- |
 | `GET /products`, `GET /products/{id}`, `GET /categories` | product-discovery (+ pricing) |
-| `POST /products/{id}:delivery-dates` | delivery-promise |
+| `POST /products/{id}/delivery-date-quotes` | delivery-promise |
 | `GET /carts`, `POST /carts`, `GET /carts/{id}` | shopping-cart |
 | `POST /carts/{id}/lines`, `PATCH`/`DELETE /carts/{id}/lines/{item}` | shopping-cart |
-| `POST /carts/{id}/destination`, `POST /carts/{id}/delivery:quote`, `POST /carts/{id}/delivery:select` | shopping-cart + delivery-promise + pricing |
-| `POST /checkout`, `GET /checkout/{id}`, `POST /checkout/{id}:confirm` | checkout |
-| `GET /orders`, `GET /orders/{id}`, `POST /orders/{id}:cancel` | customer-ordering |
+| `PUT /carts/{id}/destination`, `POST /carts/{id}/delivery-quotes`, `PUT /carts/{id}/delivery-selection` | shopping-cart + delivery-promise + pricing |
+| `POST /checkout`, `GET /checkout/{id}`, `POST /checkout/{id}/confirmations` | checkout |
+| `GET /orders`, `GET /orders/{id}`, `POST /orders/{id}/cancellations` | customer-ordering |
 | `POST /shoppers`, `POST /sessions`, `GET /me`, `POST /me/addresses` | customer-ordering (addresses pass through unlogged) |
 
 ## Helm chart
