@@ -18,7 +18,7 @@ func (g *Gateway) CreateCart(ctx context.Context, a Actor, body []byte) (Outcome
 	if len(body) == 0 {
 		body = []byte(`{}`)
 		if a.State.ShopperID != "" {
-			body, _ = json.Marshal(map[string]string{"shopperId": a.State.ShopperID})
+			body, _ = json.Marshal(map[string]string{shopperIDParam: a.State.ShopperID})
 		}
 	}
 	out, err := g.relay(ctx, composition.Command, a, cartCall("POST", "/carts", body))
@@ -40,22 +40,22 @@ func (g *Gateway) GetCart(ctx context.Context, id string) (Outcome, error) {
 	if !composition.ValidID(id) {
 		return Outcome{}, composition.Invalid("cart id is malformed")
 	}
-	return g.relay(ctx, composition.Query, Actor{}, cartCall("GET", "/carts/"+id, nil))
+	return g.relay(ctx, composition.Query, Actor{}, cartCall(methodGet, "/carts/"+id, nil))
 }
 
 // ListCarts relays GET /carts?shopperId=&state=&limit=&cursor=; the shopper
 // defaults to the cookie's. The answer is the provider's {items, nextCursor}.
 func (g *Gateway) ListCarts(ctx context.Context, a Actor, q url.Values) (Outcome, error) {
-	shopper := q.Get("shopperId")
+	shopper := q.Get(shopperIDParam)
 	if shopper == "" {
 		shopper = a.State.ShopperID
 	}
 	if !composition.ValidID(shopper) {
 		return Outcome{}, composition.Invalid("shopperId is required")
 	}
-	fwd := url.Values{"shopperId": {shopper}}
+	fwd := url.Values{shopperIDParam: {shopper}}
 	forward(fwd, q, "state", "limit", "cursor")
-	c := cartCall("GET", "/carts", nil)
+	c := cartCall(methodGet, "/carts", nil)
 	c.Query = fwd
 	return g.relay(ctx, composition.Query, a, c)
 }
