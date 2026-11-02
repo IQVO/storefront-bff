@@ -8,16 +8,17 @@ paths:
 # Cross-service integration events (Kafka)
 
 storefront-bff PUBLISHES nothing and CONSUMES nothing: it is a read/compose
-edge with no database and no outbox. The harness packages
-`internal/adapters/kafka/cloudevents` and `internal/adapters/outbound/kafka`
-ship for the fitness tests and stay UNUSED at runtime (docs/adr/0002).
+edge with no database and no outbox. No Kafka adapter packages exist in this repo; the CloudEvents helper
+template (`templates/cloudevents/`) is kept for the fitness tests and stays
+UNUSED at runtime (docs/adr/0002).
 
 If an event is ever added, the fleet rule applies unchanged:
 
 ## Events: CloudEvents 1.0 is MANDATORY
 
 Every Kafka message is a CloudEvents 1.0 event in structured content mode,
-built and decoded only through `internal/adapters/kafka/cloudevents`:
+built and decoded only through the helper generated from
+`templates/cloudevents/cloudevents.go.tmpl`:
 `type` = `com.retailnetwork.storefront.storefront-bff.<entity>.<EventName>`,
 `source` = `/retailnetwork/storefront-bff`, `dataschema` =
 `urn:retailnetwork:storefront-bff:events:<EventName>:v1`, topics
