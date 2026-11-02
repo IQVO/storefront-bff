@@ -22,19 +22,24 @@ This project is a domain-driven design study. It is not associated with, endorse
 
 ## Documentation
 
-This repo has no docs site of its own. The context's design lives in
-[warehouse-docs](https://iqvo.github.io/warehouse-docs/storefront/) —
-`storefront/model/model.yaml` there is the single source of truth.
+The documentation site is published at **<https://iqvo.github.io/storefront-bff/>**
+(built from [`docs/`](docs/) by `.github/workflows/docs.yml`; run it locally
+with `cd docs && npm ci && npm start`). The fleet-wide view of the storefront
+domain lives in [warehouse-docs](https://iqvo.github.io/warehouse-docs/storefront/).
 
-Page map:
+Page map (paths under `docs/docs/`):
 
 | Area | Pages |
 |---|---|
-| Storefront domain | [Storefront hub](https://iqvo.github.io/warehouse-docs/storefront/) |
-| This context | [Storefront BFF API](https://iqvo.github.io/warehouse-docs/storefront/api-reference/rest/storefront-bff/storefront-bff-api) — the edge contract, copied from this repo's `apis/openapi.yaml` |
-| Strategic design | [Storefront strategic design](https://iqvo.github.io/warehouse-docs/storefront/strategic-design/) — subdomain classification, context map, CloudEvents event standard, model gap register |
-| Decisions | [Storefront ADR index](https://iqvo.github.io/warehouse-docs/storefront/adr/) |
-| In this repo | [`docs/adr/`](docs/adr/) (the repo's own ADRs), [`docs/operations/runbook.md`](docs/operations/runbook.md), [`docs/before-first-release.md`](docs/before-first-release.md) |
+| Overview | [Introduction](https://iqvo.github.io/storefront-bff/docs/overview/introduction) (`overview/introduction.md`), [Architecture](https://iqvo.github.io/storefront-bff/docs/overview/architecture) (`overview/architecture.md`), [Quickstart](https://iqvo.github.io/storefront-bff/docs/overview/quickstart) (`overview/quickstart.md`) |
+| Operations | [Configuration](https://iqvo.github.io/storefront-bff/docs/operations/configuration) (`operations/configuration.md`), [Runbook](https://iqvo.github.io/storefront-bff/docs/operations/runbook) (`operations/runbook.md`), [Observability](https://iqvo.github.io/storefront-bff/docs/operations/observability) (`operations/observability.md`), [Troubleshooting](https://iqvo.github.io/storefront-bff/docs/operations/troubleshooting) (`operations/troubleshooting.md`), [Before the first release](https://iqvo.github.io/storefront-bff/docs/operations/before-first-release) (`operations/before-first-release.md`) |
+| Development | [Testing](https://iqvo.github.io/storefront-bff/docs/development/testing) (`development/testing.md`) |
+| Domain-driven design | [Ubiquitous language](https://iqvo.github.io/storefront-bff/docs/ddd/ubiquitous-language), [Use cases](https://iqvo.github.io/storefront-bff/docs/ddd/use-cases), [Subdomain classification](https://iqvo.github.io/storefront-bff/docs/ddd/subdomain-classification), [DDD artifacts index](https://iqvo.github.io/storefront-bff/docs/ddd/ddd-artifacts) (`ddd/*.md`) |
+| DDD artifacts | [Core domain chart](https://iqvo.github.io/storefront-bff/docs/ddd/core-domain-chart), [Bounded context canvas](https://iqvo.github.io/storefront-bff/docs/ddd/bounded-context-canvas), [Context map](https://iqvo.github.io/storefront-bff/docs/ddd/context-map), [Aggregate design canvas](https://iqvo.github.io/storefront-bff/docs/ddd/aggregate-design-canvas), [Domain message flow](https://iqvo.github.io/storefront-bff/docs/ddd/domain-message-flow), [EventStorming](https://iqvo.github.io/storefront-bff/docs/ddd/eventstorming), [Class diagrams](https://iqvo.github.io/storefront-bff/docs/ddd/class-diagram), [Entity-relationship](https://iqvo.github.io/storefront-bff/docs/ddd/entity-relationship), [Sequence diagrams](https://iqvo.github.io/storefront-bff/docs/ddd/sequence-diagrams), [Domain events](https://iqvo.github.io/storefront-bff/docs/ddd/domain-events) |
+| API reference | [API overview](https://iqvo.github.io/storefront-bff/docs/api-reference) (`api-reference/overview.md`) and the generated [REST reference](https://iqvo.github.io/storefront-bff/docs/api-reference/rest/storefront-bff-api) from [`apis/openapi.yaml`](apis/openapi.yaml). No event catalogue: the BFF publishes and consumes nothing |
+| Ecosystem | [Integration](https://iqvo.github.io/storefront-bff/docs/ecosystem/integration) (`ecosystem/integration.md`) |
+| Decisions | [ADR index](https://iqvo.github.io/storefront-bff/docs/adr), sources in [`docs/adr/`](docs/adr/) |
+| Fleet context | [Storefront hub](https://iqvo.github.io/warehouse-docs/storefront/), [strategic design](https://iqvo.github.io/warehouse-docs/storefront/strategic-design/) (subdomain classification, context map, CloudEvents standard) |
 
 ## Architecture
 
@@ -146,12 +151,12 @@ services it composes (the failure names the value):
 ```sh
 helm upgrade --install storefront-bff charts/storefront-bff \
   --namespace storefront-bff --create-namespace \
-  --set config.productDiscoveryUrl=http://product-discovery.product-discovery.svc.cluster.local \
-  --set config.deliveryPromiseUrl=http://delivery-promise.delivery-promise.svc.cluster.local \
-  --set config.shoppingCartUrl=http://shopping-cart.shopping-cart.svc.cluster.local \
-  --set config.checkoutUrl=http://checkout.checkout.svc.cluster.local \
-  --set config.customerOrderingUrl=http://customer-ordering.customer-ordering.svc.cluster.local \
-  --set config.pricingUrl=http://pricing.pricing.svc.cluster.local
+  --set config.productDiscoveryUrl=http://product-discovery.warehouse-systems.svc.cluster.local \
+  --set config.deliveryPromiseUrl=http://delivery-promise.warehouse-systems.svc.cluster.local \
+  --set config.shoppingCartUrl=http://shopping-cart.warehouse-systems.svc.cluster.local \
+  --set config.checkoutUrl=http://checkout.warehouse-systems.svc.cluster.local \
+  --set config.customerOrderingUrl=http://customer-ordering.warehouse-systems.svc.cluster.local \
+  --set config.pricingUrl=http://pricing.warehouse-systems.svc.cluster.local
 ```
 
 Values that matter: the six `config.*Url` values, `config.port` (must equal
@@ -172,7 +177,7 @@ Every CI sensor is a `make` target. `make help` lists them all.
 | `make check` | format, vet, build, lint and unit tests (the pre-push gate) |
 | `make check-fast` | fmt-check, vet, arch-test |
 | `make check-all` | check + coverage + arch-test + bdd |
-| `make coverage` | 90% gate over `internal/domain` and `internal/application` |
+| `make coverage` | 90% gate over the domain, application, inbound adapters, REST client and config packages |
 | `make mutation` | gremlins on `internal/domain` |
 | `make arch-test` | hexagonal and BFF fitness tests |
 | `make integration` | integration suites over fake upstreams (build-tagged) |
@@ -188,8 +193,8 @@ Git hooks are managed by [lefthook](https://github.com/evilmartians/lefthook)
   idempotency, state, card-data rejection; handlers; `make test`).
 - **Integration** — `cmd/api` integration suites: per-call budget behavior,
   upstream contract mapping and the shopper journey (`make integration`).
-- **Coverage gate** — `make coverage`: ≥ 90% over `internal/domain` +
-  `internal/application`.
+- **Coverage gate** — `make coverage`: ≥ 90% over the domain, application,
+  inbound adapters, REST client and config packages.
 - **Mutation** — gremlins over `internal/domain` (`make mutation`; the
   exhaustive `mutation-full`).
 - **Architecture fitness** — `internal/architecture/`, including the BFF's
@@ -205,9 +210,10 @@ next version and publishes the chart.
 
 ## Architecture Decision Records
 
-The ADR index lives at [docs/adr/](docs/adr/) — 4 decisions: the bounded
-context, the design assumptions, the fleet observability standard, and the
-relaying of the category tree.
+The ADR index lives at [docs/adr/](docs/adr/) — 5 decisions: the bounded
+context, the design assumptions, the fleet observability standard, the
+relaying of the category tree and delivery dates that carry the window's time
+zone.
 
 ## License
 

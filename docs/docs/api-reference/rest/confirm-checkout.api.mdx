@@ -1,0 +1,70 @@
+---
+id: confirm-checkout
+title: "Confirm the session with a payment method token"
+description: "Relays checkout POST /checkout-sessions/{sessionId}:confirm with the PSP token (never a card number: card-shaped fields and a token that is a card number are refused with 422 before any upstream call). Uses the long confirm budget. 200 carries a definitive session, 202 an in-doubt placement to poll."
+sidebar_label: "Confirm the session with a payment method token"
+hide_title: true
+hide_table_of_contents: true
+api: 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
+sidebar_class_name: "post api-method"
+info_path: docs/api-reference/rest/storefront-bff-api
+custom_edit_url: null
+hide_send_button: true
+---
+
+import MethodEndpoint from "@theme/ApiExplorer/MethodEndpoint";
+import ParamsDetails from "@theme/ParamsDetails";
+import RequestSchema from "@theme/RequestSchema";
+import StatusCodes from "@theme/StatusCodes";
+import OperationTabs from "@theme/OperationTabs";
+import TabItem from "@theme/TabItem";
+import Heading from "@theme/Heading";
+import Translate from "@docusaurus/Translate";
+
+<Heading
+  as={"h1"}
+  className={"openapi__heading"}
+  children={"Confirm the session with a payment method token"}
+>
+</Heading>
+
+<MethodEndpoint
+  method={"post"}
+  path={"/checkout/{id}:confirm"}
+  context={"endpoint"}
+>
+  
+</MethodEndpoint>
+
+
+
+Relays checkout POST /checkout-sessions/\{sessionId\}:confirm with the PSP token (never a card number: card-shaped fields and a token that is a card number are refused with 422 before any upstream call). Uses the long confirm budget. 200 carries a definitive session, 202 an in-doubt placement to poll.
+
+<Heading
+  id={"request"}
+  as={"h2"}
+  className={"openapi-tabs__heading"}
+>
+  <Translate id="theme.openapi.request.title">Request</Translate>
+</Heading>
+
+<ParamsDetails
+  {...require("./confirm-checkout.ParamsDetails.json")}
+>
+  
+</ParamsDetails>
+
+<RequestSchema
+  {...require("./confirm-checkout.RequestSchema.json")}
+>
+  
+</RequestSchema>
+
+<StatusCodes
+  {...require("./confirm-checkout.StatusCodes.json")}
+>
+  
+</StatusCodes>
+
+
+      

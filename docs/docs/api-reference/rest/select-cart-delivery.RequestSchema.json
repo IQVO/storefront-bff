@@ -1,0 +1,1 @@
+{"title":"Body","body":{"required":true,"content":{"application/json":{"schema":{"type":"object","description":"A JSON document owned by the upstream contract; the BFF does not interpret it.","additionalProperties":true,"title":"Passthrough"}}}}}

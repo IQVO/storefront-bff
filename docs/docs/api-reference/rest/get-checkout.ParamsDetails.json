@@ -1,0 +1,1 @@
+{"parameters":[{"name":"id","in":"path","required":true,"description":"An upstream resource id (letters, digits, dot, underscore, dash; at most 128 characters).","schema":{"type":"string","minLength":1,"maxLength":128}}]}
