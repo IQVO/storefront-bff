@@ -19,8 +19,8 @@ Common rules, applied by `Gateway.call` and `Gateway.relay`
 (`internal/application/usecases/gateway.go`):
 
 - **Allowlist first.** A call off the closed list is refused before a request is
-  built (`ErrRouteNotAllowed`, which surfaces as a 500 because it is a coding
-  error, not a client error).
+  built (`ErrRouteNotAllowed`, which answers `/problems/route-not-allowed` with
+  status 500 because it is a coding error, not a client error).
 - **Budget per class.** The whole composition runs under one context deadline:
   *query* 2 s, *command* 5 s, *confirm* 15 s (`BUDGET_*_MS`). Expiry is
   `ErrUpstreamTimeout` (504); no retry.
@@ -94,7 +94,8 @@ symptom-first view is [Troubleshooting](/docs/operations/troubleshooting).
 | `composition.ErrUpstreamTimeout` | `/problems/gateway-timeout` (504) |
 | `composition.ErrUpstreamUnavailable` | `/problems/upstream-unavailable` (503) |
 | `context.Canceled` | `/problems/client-closed-request` (499) |
-| anything else, including `ErrRouteNotAllowed` | `/problems/internal-error` (500) |
+| `composition.ErrRouteNotAllowed` | `/problems/route-not-allowed` (500) |
+| anything else | `/problems/internal-error` (500) |
 | malformed route or NUL in input (middleware) | `/problems/malformed-request` (400), `/problems/resource-not-found` (404), `method-not-allowed` (405), `/problems/payload-too-large` (413) |
 
 Details never carry request or upstream data.
@@ -105,6 +106,8 @@ Details never carry request or upstream data.
   (`internal/adapters/outbound/rest/client.go`, and
   [ADR 0003](/docs/adr/0003-fleet-observability-standard) adopts the fleet
   observability standard).
-- `ErrRouteNotAllowed` has no dedicated problem type and surfaces as a 500
-  `internal-error`; it can only come from a code change that calls a route
-  missing from the allowlist.
+- `ErrRouteNotAllowed` answers its own problem type, `route-not-allowed`, but
+  keeps status 500: the allowlist guards the calls the BFF builds itself (ids are
+  validated before they reach a path), so a refusal can only come from a code
+  change that calls a route missing from the allowlist. A 403 or 404 would blame
+  the client and hide the bug from the 5xx alerts.
