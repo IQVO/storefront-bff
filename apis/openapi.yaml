@@ -92,6 +92,7 @@ paths:
       responses:
         '200': {$ref: '#/components/responses/Json'}
         '404': {$ref: '#/components/responses/Problem'}
+        '422': {$ref: '#/components/responses/Problem'}
         '503': {$ref: '#/components/responses/Problem'}
         '504': {$ref: '#/components/responses/Problem'}
   /products/{id}/delivery-date-quotes:
@@ -125,6 +126,7 @@ paths:
         '400': {$ref: '#/components/responses/BadRequest'}
         '409': {$ref: '#/components/responses/Conflict'}
         '422': {$ref: '#/components/responses/Problem'}
+        '413': {$ref: '#/components/responses/PayloadTooLarge'}
         '503': {$ref: '#/components/responses/Problem'}
         '504': {$ref: '#/components/responses/Problem'}
   /carts:
@@ -152,6 +154,7 @@ paths:
         '400': {$ref: '#/components/responses/BadRequest'}
         '409': {$ref: '#/components/responses/Conflict'}
         '422': {$ref: '#/components/responses/Problem'}
+        '413': {$ref: '#/components/responses/PayloadTooLarge'}
         '503': {$ref: '#/components/responses/Problem'}
         '504': {$ref: '#/components/responses/Problem'}
     get:
@@ -185,6 +188,7 @@ paths:
       responses:
         '200': {$ref: '#/components/responses/Json'}
         '404': {$ref: '#/components/responses/Problem'}
+        '422': {$ref: '#/components/responses/Problem'}
         '503': {$ref: '#/components/responses/Problem'}
         '504': {$ref: '#/components/responses/Problem'}
   /carts/{id}/lines:
@@ -207,6 +211,7 @@ paths:
         '404': {$ref: '#/components/responses/Problem'}
         '409': {$ref: '#/components/responses/Conflict'}
         '422': {$ref: '#/components/responses/Problem'}
+        '413': {$ref: '#/components/responses/PayloadTooLarge'}
         '503': {$ref: '#/components/responses/Problem'}
         '504': {$ref: '#/components/responses/Problem'}
   /carts/{id}/lines/{item}:
@@ -230,20 +235,22 @@ paths:
         '404': {$ref: '#/components/responses/Problem'}
         '409': {$ref: '#/components/responses/Conflict'}
         '422': {$ref: '#/components/responses/Problem'}
+        '413': {$ref: '#/components/responses/PayloadTooLarge'}
         '503': {$ref: '#/components/responses/Problem'}
         '504': {$ref: '#/components/responses/Problem'}
     delete:
       tags: [Carts]
       operationId: removeCartLine
       summary: Remove a cart line
-      description: Relays shopping-cart DELETE /carts/{cartId}/lines/{catalogItemId}. An Idempotency-Key is optional and ignored.
+      description: Relays shopping-cart DELETE /carts/{cartId}/lines/{catalogItemId}. No Idempotency-Key is required; when the page sends a valid one it is forwarded upstream minted like any command key (and Idempotency-Replayed may be set). A malformed one is not checked here.
       parameters:
         - $ref: '#/components/parameters/Id'
         - $ref: '#/components/parameters/Item'
       responses:
-        '200': {$ref: '#/components/responses/Json'}
+        '200': {$ref: '#/components/responses/JsonCommand'}
         '404': {$ref: '#/components/responses/Problem'}
         '409': {$ref: '#/components/responses/Problem'}
+        '422': {$ref: '#/components/responses/Problem'}
         '503': {$ref: '#/components/responses/Problem'}
         '504': {$ref: '#/components/responses/Problem'}
   /carts/{id}/destination:
@@ -251,7 +258,7 @@ paths:
       tags: [Carts]
       operationId: setCartDestination
       summary: Set the destination postal prefix
-      description: Relays shopping-cart PUT /carts/{cartId}/destination. Clears the current delivery quote. An Idempotency-Key is optional and ignored.
+      description: Relays shopping-cart PUT /carts/{cartId}/destination. Clears the current delivery quote. No Idempotency-Key is required; when the page sends a valid one it is forwarded upstream minted like any command key (and Idempotency-Replayed may be set). A malformed one is not checked here.
       parameters:
         - $ref: '#/components/parameters/Id'
       requestBody:
@@ -260,10 +267,12 @@ paths:
           application/json:
             schema: {$ref: '#/components/schemas/Passthrough'}
       responses:
-        '200': {$ref: '#/components/responses/Json'}
+        '200': {$ref: '#/components/responses/JsonCommand'}
+        '400': {$ref: '#/components/responses/BadRequest'}
         '404': {$ref: '#/components/responses/Problem'}
         '409': {$ref: '#/components/responses/Problem'}
         '422': {$ref: '#/components/responses/Problem'}
+        '413': {$ref: '#/components/responses/PayloadTooLarge'}
         '503': {$ref: '#/components/responses/Problem'}
         '504': {$ref: '#/components/responses/Problem'}
   /carts/{id}/delivery-quotes:
@@ -288,7 +297,7 @@ paths:
       tags: [Carts]
       operationId: selectCartDelivery
       summary: Select a delivery offer for a shipment group
-      description: Relays shopping-cart PUT /carts/{cartId}/delivery-selection. An Idempotency-Key is optional and ignored.
+      description: Relays shopping-cart PUT /carts/{cartId}/delivery-selection. No Idempotency-Key is required; when the page sends a valid one it is forwarded upstream minted like any command key (and Idempotency-Replayed may be set). A malformed one is not checked here.
       parameters:
         - $ref: '#/components/parameters/Id'
       requestBody:
@@ -297,10 +306,12 @@ paths:
           application/json:
             schema: {$ref: '#/components/schemas/Passthrough'}
       responses:
-        '200': {$ref: '#/components/responses/Json'}
+        '200': {$ref: '#/components/responses/JsonCommand'}
+        '400': {$ref: '#/components/responses/BadRequest'}
         '404': {$ref: '#/components/responses/Problem'}
         '409': {$ref: '#/components/responses/Problem'}
         '422': {$ref: '#/components/responses/Problem'}
+        '413': {$ref: '#/components/responses/PayloadTooLarge'}
         '503': {$ref: '#/components/responses/Problem'}
         '504': {$ref: '#/components/responses/Problem'}
   /checkout:
@@ -332,6 +343,7 @@ paths:
         '400': {$ref: '#/components/responses/BadRequest'}
         '409': {$ref: '#/components/responses/Conflict'}
         '422': {$ref: '#/components/responses/Problem'}
+        '413': {$ref: '#/components/responses/PayloadTooLarge'}
         '503': {$ref: '#/components/responses/Problem'}
         '504': {$ref: '#/components/responses/Problem'}
   /checkout/{id}:
@@ -345,6 +357,7 @@ paths:
       responses:
         '200': {$ref: '#/components/responses/Json'}
         '404': {$ref: '#/components/responses/Problem'}
+        '422': {$ref: '#/components/responses/Problem'}
         '503': {$ref: '#/components/responses/Problem'}
         '504': {$ref: '#/components/responses/Problem'}
   /checkout/{id}/confirmations:
@@ -373,6 +386,7 @@ paths:
         '404': {$ref: '#/components/responses/Problem'}
         '409': {$ref: '#/components/responses/Conflict'}
         '422': {$ref: '#/components/responses/Problem'}
+        '413': {$ref: '#/components/responses/PayloadTooLarge'}
         '503': {$ref: '#/components/responses/Problem'}
         '504': {$ref: '#/components/responses/Problem'}
   /orders:
@@ -413,6 +427,7 @@ paths:
       responses:
         '200': {$ref: '#/components/responses/Json'}
         '404': {$ref: '#/components/responses/Problem'}
+        '422': {$ref: '#/components/responses/Problem'}
         '503': {$ref: '#/components/responses/Problem'}
         '504': {$ref: '#/components/responses/Problem'}
   /orders/{id}/cancellations:
@@ -435,6 +450,7 @@ paths:
         '404': {$ref: '#/components/responses/Problem'}
         '409': {$ref: '#/components/responses/Conflict'}
         '422': {$ref: '#/components/responses/Problem'}
+        '413': {$ref: '#/components/responses/PayloadTooLarge'}
         '503': {$ref: '#/components/responses/Problem'}
         '504': {$ref: '#/components/responses/Problem'}
   /shoppers:
@@ -462,6 +478,7 @@ paths:
         '400': {$ref: '#/components/responses/BadRequest'}
         '409': {$ref: '#/components/responses/Conflict'}
         '422': {$ref: '#/components/responses/Problem'}
+        '413': {$ref: '#/components/responses/PayloadTooLarge'}
         '503': {$ref: '#/components/responses/Problem'}
         '504': {$ref: '#/components/responses/Problem'}
   /sessions:
@@ -473,7 +490,7 @@ paths:
         Looks the shopper up with customer-ordering GET /shoppers?email=.
         There is no password and no authentication; the cookie only
         remembers which shopper the page acts for. A POST, so it requires an
-        Idempotency-Key; the lookup is a read upstream, so it is never replayed.
+        Idempotency-Key; the lookup is a GET upstream, so no upstream key is forwarded and in practice the answer never carries Idempotency-Replayed and never answers 409 (both are declared only because the fleet REST guideline requires them on every keyed POST). Without a body of {email} (at most 254 characters, no other field) the answer is 422 validation-failed.
       parameters:
         - $ref: '#/components/parameters/IdempotencyKey'
       requestBody:
@@ -492,8 +509,9 @@ paths:
               schema: {$ref: '#/components/schemas/Passthrough'}
         '400': {$ref: '#/components/responses/BadRequest'}
         '404': {$ref: '#/components/responses/Problem'}
-        '409': {$ref: '#/components/responses/Conflict'}
         '422': {$ref: '#/components/responses/Problem'}
+        '409': {$ref: '#/components/responses/Conflict'}
+        '413': {$ref: '#/components/responses/PayloadTooLarge'}
         '503': {$ref: '#/components/responses/Problem'}
         '504': {$ref: '#/components/responses/Problem'}
   /me:
@@ -527,6 +545,7 @@ paths:
         '404': {$ref: '#/components/responses/Problem'}
         '409': {$ref: '#/components/responses/Conflict'}
         '422': {$ref: '#/components/responses/Problem'}
+        '413': {$ref: '#/components/responses/PayloadTooLarge'}
         '503': {$ref: '#/components/responses/Problem'}
         '504': {$ref: '#/components/responses/Problem'}
 components:
@@ -535,14 +554,15 @@ components:
       name: id
       in: path
       required: true
-      description: An upstream resource id (letters, digits, dot, underscore, dash; at most 128 characters).
-      schema: {type: string, minLength: 1, maxLength: 128}
+      description: An upstream resource id (letters, digits, dot, underscore, dash; the first character a letter or digit; at most 128 characters). A malformed id answers 422 validation-failed before any upstream call.
+      # pattern mirrors composition.ValidID
+      schema: {type: string, minLength: 1, maxLength: 128, pattern: '^[A-Za-z0-9][A-Za-z0-9._-]*$'}
     Item:
       name: item
       in: path
       required: true
-      description: A catalogue item id.
-      schema: {type: string, minLength: 1, maxLength: 128}
+      description: A catalogue item id (same shape as the id parameter; malformed answers 422 validation-failed).
+      schema: {type: string, minLength: 1, maxLength: 128, pattern: '^[A-Za-z0-9][A-Za-z0-9._-]*$'}
     IdempotencyKey:
       name: Idempotency-Key
       in: header
@@ -559,7 +579,7 @@ components:
       name: limit
       in: query
       required: false
-      description: Page size (default 100). Relayed; the provider may enforce a lower bound of its own.
+      description: Page size (default 100). Validated at the edge (an integer 1-500, present once and non-empty, else 400 invalid-limit) and relayed.
       schema: {type: integer, minimum: 1, maximum: 500, default: 100}
     Cursor:
       name: cursor
@@ -569,7 +589,7 @@ components:
       schema: {type: string}
   headers:
     SetCookie:
-      description: The sf_state cookie (HttpOnly, SameSite=Lax, path /api/storefront). State, not authentication.
+      description: The sf_state cookie (HttpOnly, SameSite=Lax, path /api/storefront, Max-Age 30 days, Secure when COOKIE_SECURE is set). State, not authentication.
       schema: {type: string}
     IdempotencyReplayed:
       description: Present, with the value true, only when the answer is a replay of a stored one (any upstream write hop of the composition was replayed).
@@ -591,7 +611,8 @@ components:
       description: >-
         A 400 problem: idempotency-key-required, idempotency-key-invalid,
         unknown-query-parameter, invalid-limit, invalid-cursor (relayed from the
-        provider) or malformed-request.
+        provider) or malformed-request (a NUL character in the query string or
+        body, or an unreadable body).
       content:
         application/problem+json:
           schema: {$ref: '#/components/schemas/Problem'}
@@ -612,12 +633,20 @@ components:
           examples:
             idempotency-key-reused:
               value: {type: /problems/idempotency-key-reused, title: Idempotency-Key reused with a different request, status: 409}
+    PayloadTooLarge:
+      description: 'A 413 payload-too-large problem from the edge: the request body is over 1 MiB (checked before any upstream call).'
+      content:
+        application/problem+json:
+          schema: {$ref: '#/components/schemas/Problem'}
     Problem:
       description: >-
         An RFC 9457 problem. Upstream problems are relayed unchanged; the edge
         adds validation-failed, session-required, malformed-request,
         payload-too-large, upstream-unavailable (503), gateway-timeout (504),
-        route-not-allowed (500) and internal-error (500).
+        route-not-allowed (500), internal-error (500) and client-closed-request
+        (499, the caller went away). Any route also answers 404
+        resource-not-found for a path it does not serve (or one containing
+        NUL) and 405 method-not-allowed for a wrong method.
       content:
         application/problem+json:
           schema: {$ref: '#/components/schemas/Problem'}
@@ -661,12 +690,14 @@ components:
     DeliveryDatesRequest:
       type: object
       required: [postalPrefix]
+      additionalProperties: false
       properties:
         postalPrefix:
           type: string
           minLength: 1
           maxLength: 10
-          description: A postal prefix, never a full address.
+          pattern: '^[0-9A-Za-z -]+$'
+          description: A postal prefix, never a full address. Letters, digits, space and hyphen only, not blank; anything else answers 422 validation-failed.
     DeliveryDates:
       type: object
       required: [postalPrefix, tiers, unavailable]
@@ -676,7 +707,7 @@ components:
           type: array
           items:
             type: object
-            required: [tier, deliverByEarliest, deliverByLatest]
+            required: [tier, deliverByEarliest, deliverByLatest, offerExpiresAt]
             properties:
               tier: {type: string, enum: [SAME_DAY, NEXT_DAY, TWO_DAY, STANDARD]}
               deliverByEarliest: {type: string, format: date-time}
@@ -707,7 +738,7 @@ components:
       required: [paymentMethodToken]
       additionalProperties: false
       properties:
-        paymentMethodToken: {type: string, maxLength: 256, description: "The PSP token from the hosted fields; never a card number."}
+        paymentMethodToken: {type: string, minLength: 1, maxLength: 256, description: "The PSP token from the hosted fields; never a card number."}
     CancelOrderRequest:
       type: object
       required: [reason]
@@ -719,4 +750,4 @@ components:
       required: [email]
       additionalProperties: false
       properties:
-        email: {type: string, format: email, maxLength: 254}
+        email: {type: string, minLength: 1, maxLength: 254}
