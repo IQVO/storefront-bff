@@ -35,7 +35,7 @@ func (g *Gateway) OpenCheckout(ctx context.Context, a Actor, body []byte) (Outco
 		return Outcome{}, composition.Invalid("cartId and shipToAddressId are required ids")
 	}
 	open, err := json.Marshal(map[string]string{
-		"cartId": req.CartID, "shopperId": a.State.ShopperID, "shipToAddressId": req.ShipToAddressID,
+		"cartId": req.CartID, shopperIDParam: a.State.ShopperID, "shipToAddressId": req.ShipToAddressID,
 	})
 	if err != nil {
 		return Outcome{}, err
@@ -60,7 +60,7 @@ func (g *Gateway) GetCheckout(ctx context.Context, id string) (Outcome, error) {
 	if !composition.ValidID(id) {
 		return Outcome{}, composition.Invalid("checkout id is malformed")
 	}
-	return g.relay(ctx, composition.Query, Actor{}, checkoutCall("GET", "/checkout-sessions/"+id, nil))
+	return g.relay(ctx, composition.Query, Actor{}, checkoutCall(methodGet, "/checkout-sessions/"+id, nil))
 }
 
 type confirmRequest struct {

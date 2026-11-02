@@ -18,7 +18,7 @@ func (g *Gateway) SearchProducts(ctx context.Context, q url.Values) (Outcome, er
 	fwd := url.Values{}
 	forward(fwd, q, searchParams...)
 	return g.relay(ctx, composition.Query, Actor{}, composition.Call{
-		Service: composition.ProductDiscovery, Method: "GET", Path: "/products", Query: fwd,
+		Service: composition.ProductDiscovery, Method: methodGet, Path: "/products", Query: fwd,
 	})
 }
 
@@ -28,7 +28,7 @@ func (g *Gateway) SearchProducts(ctx context.Context, q url.Values) (Outcome, er
 // forwarded.
 func (g *Gateway) ListCategories(ctx context.Context) (Outcome, error) {
 	return g.relay(ctx, composition.Query, Actor{}, composition.Call{
-		Service: composition.ProductDiscovery, Method: "GET", Path: "/categories",
+		Service: composition.ProductDiscovery, Method: methodGet, Path: "/categories",
 	})
 }
 
@@ -38,7 +38,7 @@ func (g *Gateway) GetProduct(ctx context.Context, id string) (Outcome, error) {
 		return Outcome{}, composition.Invalid("product id is malformed")
 	}
 	return g.relay(ctx, composition.Query, Actor{}, composition.Call{
-		Service: composition.ProductDiscovery, Method: "GET", Path: "/products/" + id,
+		Service: composition.ProductDiscovery, Method: methodGet, Path: "/products/" + id,
 	})
 }
 
