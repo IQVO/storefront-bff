@@ -17,8 +17,8 @@ context.
   (network OHS routes plus the storefront contexts' own REST). Anything else is refused.
 - **State** — cart id, shopper id and last checkout id carried in the `sf_state`
   cookie. State, NOT authentication: there is no auth anywhere.
-- **Action** — one user click. Its upstream Idempotency-Key is minted
-  deterministically (route, subject, payload, ten minute window) or pinned by `X-Action-Id`.
+- **Action** — one user click. Its upstream Idempotency-Key is derived
+  from (route, subject, the page's `Idempotency-Key`); `X-Action-Id` is gone.
 - **Budget** — the time budget of a route class (query 2 s, command 5 s,
   confirm 15 s). Expiry is a 504, never a retry.
 
