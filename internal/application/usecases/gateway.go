@@ -10,6 +10,13 @@ import (
 	"github.com/IQVO/storefront-bff/internal/domain/composition"
 )
 
+// Shared wire values for the route use cases: every read is a GET and the
+// shopper travels under one query/body key, so they cannot drift per route.
+const (
+	methodGet      = "GET"
+	shopperIDParam = "shopperId"
+)
+
 // Actor is who a request acts for: the cookie state plus the Idempotency-Key
 // the page sent for this submit (required on POST/PATCH at the edge).
 type Actor struct {
@@ -59,7 +66,7 @@ func (g *Gateway) call(ctx context.Context, a Actor, c composition.Call) (compos
 	if !composition.Allowed(c) {
 		return composition.Reply{}, composition.UpstreamError(composition.ErrRouteNotAllowed, c.Service)
 	}
-	if c.Method != "GET" && c.IdempotencyKey == "" && a.IdempotencyKey != "" {
+	if c.Method != methodGet && c.IdempotencyKey == "" && a.IdempotencyKey != "" {
 		route := c.Method + " " + c.Path
 		c.IdempotencyKey = composition.MintKey(route, a.subject(), a.IdempotencyKey)
 	}
