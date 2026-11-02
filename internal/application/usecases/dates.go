@@ -19,7 +19,7 @@ type tierCharge struct {
 // yields no charges (the dates still render).
 func (g *Gateway) chargesByTier(ctx context.Context) map[string]tierCharge {
 	reply, err := g.call(ctx, Actor{}, composition.Call{
-		Service: composition.Pricing, Method: "GET", Path: "/delivery-charge-schedules/current",
+		Service: composition.Pricing, Method: methodGet, Path: "/delivery-charge-schedules/current",
 	})
 	if err != nil || !reply.OK() {
 		return nil

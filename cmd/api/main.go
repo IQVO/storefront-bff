@@ -86,7 +86,10 @@ func run(ctx context.Context, getenv func(string) string, log *slog.Logger, read
 		ReadTimeout:       15 * time.Second,
 		IdleTimeout:       60 * time.Second,
 	}
-	ln, err := net.Listen("tcp", cfg.Addr)
+	// ListenConfig.Listen carries the run context so the listener respects
+	// cancellation instead of leaking a socket on shutdown (noctx).
+	var lc net.ListenConfig
+	ln, err := lc.Listen(ctx, "tcp", cfg.Addr)
 	if err != nil {
 		return fmt.Errorf("listen: %w", err)
 	}

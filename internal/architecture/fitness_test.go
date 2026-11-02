@@ -346,8 +346,9 @@ var (
 )
 
 // TestNoEventEnvelopeToggleOrFlatEnvelope encodes the fleet-wide rule that
-// CloudEvents 1.0 (structured mode, built only through
-// internal/adapters/kafka/cloudevents) is the ONLY Kafka event envelope:
+// CloudEvents 1.0 (structured mode, built only through the fleet CloudEvents
+// SDK helper in repos that publish to Kafka; this BFF has no Kafka adapter)
+// is the ONLY Kafka event envelope:
 // no flat envelope, no dual-write/dual-read, no EVENT_ENVELOPE_MODE (or any
 // other) envelope toggle. Every repo carried a flat envelope struct and
 // several carried a dual-mode toggle before the cutover; an agent
@@ -358,7 +359,7 @@ func TestNoEventEnvelopeToggleOrFlatEnvelope(t *testing.T) {
 	for _, path := range files {
 		hasIDTag, hasTypeTag := scanEnvelopeRules(t, path)
 		if hasIDTag && hasTypeTag {
-			t.Errorf("%s: declares a flat event envelope (json \"event_id\" + \"event_type\" tags) — CloudEvents 1.0 is the only envelope in this fleet; build/decode with internal/adapters/kafka/cloudevents (sdk-go v2 event package) instead", path)
+			t.Errorf("%s: declares a flat event envelope (json \"event_id\" + \"event_type\" tags) — CloudEvents 1.0 is the only envelope in this fleet; build/decode with the fleet CloudEvents SDK (sdk-go v2 event package) instead", path)
 		}
 	}
 }
