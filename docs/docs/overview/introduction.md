@@ -36,7 +36,7 @@ packages are scaffold leftovers `cmd/api` never wires), any persistence.
 | --- | --- | --- |
 | **Upstream allowlist** | `internal/domain/composition/allowlist.go` | A closed list of 25 `METHOD /path` templates over the six services. Anything else (ship-to, `POST /promises`, promise confirm and cancel, inventory feeds, policy routes) is refused before a request is built. |
 | **Time budgets** | `composition/budget.go` | 2 s for queries, 5 s for commands, 15 s for checkout confirm, applied to the whole composition; expiry is a 504 and nothing is retried. |
-| **Idempotency-Key minting** | `composition/idempotency.go` | `sf-` plus 40 hex chars, deterministic for route, subject, action and a 10-minute window; a page pins it per click with `X-Action-Id`. |
+| **Idempotency-Key minting** | `composition/idempotency.go` | `sf-` plus 40 hex chars, deterministic for route, subject and the page's required `Idempotency-Key` (one per user submit). |
 | **Shopper state** | `composition/state.go` | The `sf_state` cookie carries opaque ids: cart `c`, shopper `s`, last checkout `k`. State, never authentication. |
 | **Card-data guard** | `composition/card.go` | Raw card fields and card-shaped tokens never leave the process; only a PSP payment-method token is accepted on confirm. |
 | **Composition use cases** | `internal/application/usecases` | One method per route: validate ids, build the allowlisted calls, join optional legs, classify failures. |
@@ -74,7 +74,7 @@ packages are scaffold leftovers `cmd/api` never wires), any persistence.
 1. **Browse**: `GET /products`, `GET /products/{id}` and `GET /categories`,
    relayed from product-discovery with only the documented search filters
    forwarded.
-2. **Delivery dates on a product page**: `POST /products/{id}:delivery-dates`
+2. **Delivery dates on a product page**: `POST /products/{id}/delivery-date-quotes`
    quotes one unit for a postal prefix and joins each tier's delivery charge
    from pricing; a failing charge schedule only drops the charge.
 3. **Cart**: create, read, list, add a line, change a quantity, remove a line,
@@ -105,3 +105,7 @@ packages are scaffold leftovers `cmd/api` never wires), any persistence.
 | Read the decisions | [ADR index](/docs/adr) |
 
 Published at [https://iqvo.github.io/storefront-bff/](https://iqvo.github.io/storefront-bff/).
+
+:::note[Disclaimer]
+This project is a domain-driven design study. It is not associated with, endorsed by or affiliated with any company, and it uses no company's code, data, logos or trademarks. All names, figures and examples are illustrative or synthetic.
+:::

@@ -71,8 +71,8 @@ const quoteBody = `{"offers":[
 const scheduleBody = `{"tiers":[{"tier":"NEXT_DAY","charge":{"amountMinor":599,"currency":"USD"},"freeOver":{"amountMinor":5000,"currency":"USD"}}]}`
 
 func TestDeliveryDatesComposesQuoteAndCharges(t *testing.T) {
-	f := newFake().on("POST /delivery-offers:quote", 200, quoteBody).on("GET /delivery-charge-schedules/current", 200, scheduleBody)
-	out, err := newGateway(f).DeliveryDates(context.Background(), "p1", []byte(`{"postalPrefix":"787"}`))
+	f := newFake().on("POST /delivery-quotes", 200, quoteBody).on("GET /delivery-charge-schedules/current", 200, scheduleBody)
+	out, err := newGateway(f).DeliveryDates(context.Background(), keyed, "p1", []byte(`{"postalPrefix":"787"}`))
 	if err != nil || out.Reply.Status != 200 {
 		t.Fatalf("out=%+v err=%v", out, err)
 	}
@@ -105,8 +105,8 @@ func TestDeliveryDatesRelaysWindowTimeZone(t *testing.T) {
  {"state":"QUOTED","tier":"STANDARD","window":{"earliest":"2026-11-03T00:00:00Z","latest":"2026-11-04T23:59:00Z"},"expiresAt":"2026-10-30T12:10:00Z"},
  {"state":"EXPIRED","tier":"SAME_DAY","window":{"earliest":"a","latest":"b","timeZone":"America/Denver"},"expiresAt":"c"}],
  "unavailable":[]}`
-	f := newFake().on("POST /delivery-offers:quote", 200, quote).on("GET /delivery-charge-schedules/current", 200, scheduleBody)
-	out, err := newGateway(f).DeliveryDates(context.Background(), "p1", []byte(`{"postalPrefix":"606"}`))
+	f := newFake().on("POST /delivery-quotes", 200, quote).on("GET /delivery-charge-schedules/current", 200, scheduleBody)
+	out, err := newGateway(f).DeliveryDates(context.Background(), keyed, "p1", []byte(`{"postalPrefix":"606"}`))
 	if err != nil || out.Reply.Status != 200 {
 		t.Fatalf("out=%+v err=%v", out, err)
 	}
@@ -130,16 +130,16 @@ func TestDeliveryDatesRelaysWindowTimeZone(t *testing.T) {
 }
 
 func TestDeliveryDatesWithoutChargeScheduleStillRenders(t *testing.T) {
-	f := newFake().on("POST /delivery-offers:quote", 200, quoteBody).fail("GET /delivery-charge-schedules/current", errors.New("down"))
-	out, err := newGateway(f).DeliveryDates(context.Background(), "p1", []byte(`{"postalPrefix":"787"}`))
+	f := newFake().on("POST /delivery-quotes", 200, quoteBody).fail("GET /delivery-charge-schedules/current", errors.New("down"))
+	out, err := newGateway(f).DeliveryDates(context.Background(), keyed, "p1", []byte(`{"postalPrefix":"787"}`))
 	if err != nil || strings.Contains(string(out.Reply.Body), `"charge"`) {
 		t.Fatalf("out=%s err=%v", out.Reply.Body, err)
 	}
 }
 
 func TestDeliveryDatesRelaysUpstreamProblem(t *testing.T) {
-	f := newFake().on("POST /delivery-offers:quote", 422, `{"type":"/problems/validation-failed"}`)
-	out, err := newGateway(f).DeliveryDates(context.Background(), "p1", []byte(`{"postalPrefix":"787"}`))
+	f := newFake().on("POST /delivery-quotes", 422, `{"type":"/problems/validation-failed"}`)
+	out, err := newGateway(f).DeliveryDates(context.Background(), keyed, "p1", []byte(`{"postalPrefix":"787"}`))
 	if err != nil || out.Reply.Status != 422 {
 		t.Fatalf("out=%+v err=%v", out, err)
 	}
@@ -149,18 +149,18 @@ func TestDeliveryDatesValidation(t *testing.T) {
 	g := newGateway(newFake())
 	for _, body := range []string{``, `{}`, `{"postalPrefix":""}`, `{"postalPrefix":"   "}`, `{"postalPrefix":"12345678901"}`,
 		`{"postalPrefix":"78/7"}`, `{"postalPrefix":"787","street":"x"}`, `{"postalPrefix":"787"} x`} {
-		if _, err := g.DeliveryDates(context.Background(), "p1", []byte(body)); !errors.Is(err, composition.ErrInvalid) {
+		if _, err := g.DeliveryDates(context.Background(), keyed, "p1", []byte(body)); !errors.Is(err, composition.ErrInvalid) {
 			t.Errorf("body %q: err = %v", body, err)
 		}
 	}
-	if _, err := g.DeliveryDates(context.Background(), "a/b", []byte(`{"postalPrefix":"787"}`)); !errors.Is(err, composition.ErrInvalid) {
+	if _, err := g.DeliveryDates(context.Background(), keyed, "a/b", []byte(`{"postalPrefix":"787"}`)); !errors.Is(err, composition.ErrInvalid) {
 		t.Errorf("bad product id: err = %v", err)
 	}
 }
 
 func TestDeliveryDatesGarbledQuoteIsUnavailable(t *testing.T) {
-	f := newFake().on("POST /delivery-offers:quote", 200, `not json`)
-	_, err := newGateway(f).DeliveryDates(context.Background(), "p1", []byte(`{"postalPrefix":"787"}`))
+	f := newFake().on("POST /delivery-quotes", 200, `not json`)
+	_, err := newGateway(f).DeliveryDates(context.Background(), keyed, "p1", []byte(`{"postalPrefix":"787"}`))
 	if !errors.Is(err, composition.ErrUpstreamUnavailable) {
 		t.Fatalf("err = %v", err)
 	}

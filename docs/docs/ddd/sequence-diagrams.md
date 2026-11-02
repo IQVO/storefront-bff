@@ -25,14 +25,14 @@ sequenceDiagram
     B->>C: POST /carts with Idempotency-Key sf-...
     C-->>B: 201 cartId
     B-->>W: 201 relayed, Set-Cookie sf_state c=cartId, s=shopper
-    W->>B: POST /carts/c1/lines with X-Action-Id a1
+    W->>B: POST /carts/c1/lines with Idempotency-Key a1
     B->>C: POST /carts/c1/lines with key from route, subject, a1
     alt upstream answers
         C-->>B: 200 cart
         B-->>W: 200 relayed
     else connection reset or budget expired
         B-->>W: 503 upstream-unavailable or 504 gateway-timeout
-        W->>B: same POST with the same X-Action-Id a1
+        W->>B: same POST with the same Idempotency-Key a1
         B->>C: same Idempotency-Key, so the cart replays its stored answer
         C-->>B: 200 cart
         B-->>W: 200 relayed
@@ -53,11 +53,11 @@ sequenceDiagram
     participant B as storefront-bff
     participant D as delivery-promise
     participant P as pricing
-    W->>B: POST /products/p1:delivery-dates with postalPrefix 787
+    W->>B: POST /products/p1/delivery-date-quotes with postalPrefix 787
     alt body not strict JSON or prefix invalid
         B-->>W: 422 validation-failed
     else valid
-        B->>D: POST /delivery-offers:quote one unit of p1
+        B->>D: POST /delivery-quotes one unit of p1
         alt quote fails
             D-->>B: non-2xx
             B-->>W: the upstream answer relayed untouched
@@ -88,11 +88,11 @@ sequenceDiagram
     participant W as storefront-web
     participant B as storefront-bff
     participant K as checkout
-    W->>B: POST /checkout/k1:confirm with paymentMethodToken
+    W->>B: POST /checkout/k1/confirmations with paymentMethodToken
     alt card-shaped key, unknown field, or token that passes Luhn
         B-->>W: 422 validation-failed, nothing leaves the process
     else token accepted
-        B->>K: POST /checkout-sessions/k1:confirm with Idempotency-Key, budget 15 s
+        B->>K: POST /checkout-sessions/k1/confirmations with Idempotency-Key, budget 15 s
         alt placed
             K-->>B: 200 session with orderId and totals
             B-->>W: 200 relayed

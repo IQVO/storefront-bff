@@ -19,13 +19,16 @@ Common rules, applied by `Gateway.call` and `Gateway.relay`
 (`internal/application/usecases/gateway.go`):
 
 - **Allowlist first.** A call off the closed list is refused before a request is
-  built (`ErrRouteNotAllowed`, which surfaces as a 500 because it is a coding
-  error, not a client error).
+  built (`ErrRouteNotAllowed`, which answers `/problems/route-not-allowed` with
+  status 500 because it is a coding error, not a client error).
 - **Budget per class.** The whole composition runs under one context deadline:
   *query* 2 s, *command* 5 s, *confirm* 15 s (`BUDGET_*_MS`). Expiry is
   `ErrUpstreamTimeout` (504); no retry.
-- **Idempotency.** Every non-GET call gets `Idempotency-Key = MintKey(route,
-  subject, X-Action-Id, body, now)`; queries carry none.
+- **Idempotency.** Every edge POST/PATCH requires the page's `Idempotency-Key`
+  (400 `idempotency-key-required` without it); every upstream command of such a
+  request gets `Idempotency-Key = MintKey(route, subject, pageKey)`; queries
+  carry none. The provider's `Idempotency-Replayed: true` is relayed and its 409
+  `idempotency-key-reused` passes through.
 - **Pass-through.** The upstream reply (status, content type, body) is relayed
   untouched, so an upstream 4xx/409/422 reaches the page as is. Only "no answer"
   becomes an edge error: `ErrUpstreamUnavailable` (503), a canceled context (499).
@@ -46,22 +49,22 @@ the call the BFF actually makes (see [Integration](/docs/ecosystem/integration))
 | 1 | `SearchProducts` (`catalog.go`) | `GET /products` | query | only `q`, `categoryId`, `inStock`, `priceMin`, `priceMax`, `sort`, `after`, `limit` are forwarded, the rest is dropped | product-discovery `GET /products`, query | none |
 | 2 | `ListCategories` (`catalog.go`) | `GET /categories` | none | nothing from the query is forwarded; the tree is relayed unchanged ([ADR 0004](/docs/adr/0004-bff-relays-the-category-tree)) | product-discovery `GET /categories`, query | none |
 | 3 | `GetProduct` (`catalog.go`) | `GET /products/{id}` | product id | valid id | product-discovery `GET /products/{id}`, query | none |
-| 4 | `DeliveryDates` (`catalog.go`, `dates.go`) | `POST /products/{id}:delivery-dates` | product id, `{postalPrefix}` | strict body (no unknown field, no trailing data); `postalPrefix` 1 to 10 letters, digits, spaces or dashes; valid id | delivery-promise `POST /delivery-offers:quote` for one unit (required), then pricing `GET /delivery-charge-schedules/current` (optional), one query budget for both | none |
+| 4 | `DeliveryDates` (`catalog.go`, `dates.go`) | `POST /products/{id}/delivery-date-quotes` | product id, `{postalPrefix}` | strict body (no unknown field, no trailing data); `postalPrefix` 1 to 10 letters, digits, spaces or dashes; valid id | delivery-promise `POST /delivery-quotes` for one unit (required), then pricing `GET /delivery-charge-schedules/current` (optional), one query budget for both | none |
 | 5 | `CreateCart` (`carts.go`) | `POST /carts` | optional body | an empty body adopts the cookie's shopper (`{"shopperId":...}`) or `{}`; a body is forwarded as is | shopping-cart `POST /carts`, command; stores `cartId` in the cookie if valid | none |
 | 6 | `GetCart` (`carts.go`) | `GET /carts/{id}` | cart id | valid id | shopping-cart `GET /carts/{id}`, query | none |
 | 7 | `ListCarts` (`carts.go`) | `GET /carts` | optional `shopperId`, `state` | shopper defaults to the cookie's; a valid shopper is required (`validation-failed`); only `shopperId` and `state` forwarded | shopping-cart `GET /carts`, query | none |
 | 8 | `AddLine` (`carts.go`) | `POST /carts/{id}/lines` | cart id, body | valid id | shopping-cart `POST /carts/{id}/lines`, command | none |
-| 9 | `SetLineQuantity` (`carts.go`) | `PATCH /carts/{id}/lines/{item}` | cart id, item id, body | both ids valid | shopping-cart `POST /carts/{id}/lines/{item}:set-quantity`, command | none |
-| 10 | `RemoveLine` (`carts.go`) | `DELETE /carts/{id}/lines/{item}` | cart id, item id | both ids valid | shopping-cart `POST /carts/{id}/lines/{item}:remove`, command | none |
-| 11 | `SetDestination` (`carts.go`) | `POST /carts/{id}/destination` | cart id, body | valid id | shopping-cart `POST /carts/{id}:set-destination`, command | none |
-| 12 | `QuoteDelivery` (`carts.go`) | `POST /carts/{id}/delivery:quote` | cart id | valid id; the cart service calls delivery-promise itself, hence the command budget | shopping-cart `POST /carts/{id}:quote-delivery`, command | none |
-| 13 | `SelectDelivery` (`carts.go`) | `POST /carts/{id}/delivery:select` | cart id, body | valid id | shopping-cart `POST /carts/{id}:select-delivery`, command | none |
+| 9 | `SetLineQuantity` (`carts.go`) | `PATCH /carts/{id}/lines/{item}` | cart id, item id, body | both ids valid | shopping-cart `PUT /carts/{id}/lines/{item}`, command | none |
+| 10 | `RemoveLine` (`carts.go`) | `DELETE /carts/{id}/lines/{item}` | cart id, item id | both ids valid | shopping-cart `DELETE /carts/{id}/lines/{item}`, command | none |
+| 11 | `SetDestination` (`carts.go`) | `PUT /carts/{id}/destination` | cart id, body | valid id | shopping-cart `PUT /carts/{id}/destination`, command | none |
+| 12 | `QuoteDelivery` (`carts.go`) | `POST /carts/{id}/delivery-quotes` | cart id | valid id; the cart service calls delivery-promise itself, hence the command budget | shopping-cart `POST /carts/{id}/delivery-quotes`, command | none |
+| 13 | `SelectDelivery` (`carts.go`) | `PUT /carts/{id}/delivery-selection` | cart id, body | valid id | shopping-cart `PUT /carts/{id}/delivery-selection`, command | none |
 | 14 | `OpenCheckout` (`checkout.go`) | `POST /checkout` | optional `{cartId?, shipToAddressId}` | strict body; shopper required in the cookie (`session-required`, 422); `cartId` defaults to the cookie's; `cartId` and `shipToAddressId` valid ids | checkout `POST /checkout-sessions` with `{cartId, shopperId, shipToAddressId}`, command; stores `sessionId` as `k` in the cookie | none |
 | 15 | `GetCheckout` (`checkout.go`) | `GET /checkout/{id}` | session id | valid id; the page polls it while a placement is in doubt (202) | checkout `GET /checkout-sessions/{id}`, query | none |
-| 16 | `ConfirmCheckout` (`checkout.go`) | `POST /checkout/{id}:confirm` | session id, `{paymentMethodToken}` | valid id; no card-shaped key (`pan`, `cvc`, `expiry`, ...); strict body; token 1 to 256 characters and not a Luhn-valid 13 to 19 digit number | checkout `POST /checkout-sessions/{id}:confirm`, **confirm** class (15 s) | none |
+| 16 | `ConfirmCheckout` (`checkout.go`) | `POST /checkout/{id}/confirmations` | session id, `{paymentMethodToken}` | valid id; no card-shaped key (`pan`, `cvc`, `expiry`, ...); strict body; token 1 to 256 characters and not a Luhn-valid 13 to 19 digit number | checkout `POST /checkout-sessions/{id}/confirmations`, **confirm** class (15 s) | none |
 | 17 | `ListOrders` (`orders.go`) | `GET /orders` | optional `shopperId`, `after`, `limit` | shopper defaults to the cookie's, else `session-required` (422) | customer-ordering `GET /orders`, query | none |
 | 18 | `GetOrder` (`orders.go`) | `GET /orders/{id}` | order id | valid id | customer-ordering `GET /orders/{id}` (required), `/orders/{id}/tracking` and the cookie's checkout session (both optional), one query budget | none |
-| 19 | `CancelOrder` (`orders.go`) | `POST /orders/{id}:cancel` | order id, `{reason}` | valid id; strict body; `reason` 1 to 200 characters | customer-ordering `POST /orders/{id}:cancel`, command | none |
+| 19 | `CancelOrder` (`orders.go`) | `POST /orders/{id}/cancellations` | order id, `{reason}` | valid id; strict body; `reason` 1 to 200 characters | customer-ordering `POST /orders/{id}/cancellations`, command | none |
 | 20 | `RegisterShopper` (`shoppers.go`) | `POST /shoppers` | body (e-mail, optional addresses) | body passed through untouched, never logged | customer-ordering `POST /shoppers`, command; stores `shopperId` in the cookie | none |
 | 21 | `Login` (`shoppers.go`) | `POST /sessions` | `{email}` | strict body; e-mail 1 to 254 characters; no password, no authentication | customer-ordering `GET /shoppers?email=`, query; stores `shopperId` in the cookie | none |
 | 22 | `Me` (`shoppers.go`) | `GET /me` | none | shopper required in the cookie (`session-required`) | customer-ordering `GET /shoppers/{id}`, query | none |
@@ -76,9 +79,9 @@ The invariants live in `internal/domain/composition`, not in the adapters.
 
 | Operation | Rule |
 | --- | --- |
-| `Allowed(Call)` | A call is permitted only when `(service, method, path)` matches a template of the closed list; `{}` is one path segment that must itself be a valid id, and a literal tail after it (`:confirm`) is a custom-verb suffix. |
+| `Allowed(Call)` | A call is permitted only when `(service, method, path)` matches a template of the closed list; `{}` is one path segment that must itself be a valid id. |
 | `Budgets.For(Class)` | Query, Command or Confirm duration; an unknown class gets the command budget; non-positive budgets are rejected at config load. |
-| `MintKey(route, subject, action, body, now)` | `sf-` plus the first 40 hex characters of SHA-256 over null-separated fields. With a valid `X-Action-Id` (at most 64 characters) the key ignores body and window; otherwise it hashes the body digest and `now` truncated to 10 minutes. |
+| `MintKey(route, subject, clientKey)` | `sf-` plus the first 40 hex characters of SHA-256 over null-separated route, subject and the page's `Idempotency-Key` (1 to 128 visible ASCII characters, `ValidClientKey`). No window and no body digest: the provider fingerprints the body. |
 | `State.Encode` / `DecodeState` | Query-string cookie value with `c`, `s`, `k`; malformed input and ids failing `ValidID` decode to an empty field, never an error. |
 | `IsCardFieldName`, `LooksLikeCardNumber` | JSON keys only a raw card would carry; 13 to 19 digits passing the Luhn check, spaces and dashes ignored. |
 
@@ -94,7 +97,8 @@ symptom-first view is [Troubleshooting](/docs/operations/troubleshooting).
 | `composition.ErrUpstreamTimeout` | `/problems/gateway-timeout` (504) |
 | `composition.ErrUpstreamUnavailable` | `/problems/upstream-unavailable` (503) |
 | `context.Canceled` | `/problems/client-closed-request` (499) |
-| anything else, including `ErrRouteNotAllowed` | `/problems/internal-error` (500) |
+| `composition.ErrRouteNotAllowed` | `/problems/route-not-allowed` (500) |
+| anything else | `/problems/internal-error` (500) |
 | malformed route or NUL in input (middleware) | `/problems/malformed-request` (400), `/problems/resource-not-found` (404), `method-not-allowed` (405), `/problems/payload-too-large` (413) |
 
 Details never carry request or upstream data.
@@ -105,6 +109,8 @@ Details never carry request or upstream data.
   (`internal/adapters/outbound/rest/client.go`, and
   [ADR 0003](/docs/adr/0003-fleet-observability-standard) adopts the fleet
   observability standard).
-- `ErrRouteNotAllowed` has no dedicated problem type and surfaces as a 500
-  `internal-error`; it can only come from a code change that calls a route
-  missing from the allowlist.
+- `ErrRouteNotAllowed` answers its own problem type, `route-not-allowed`, but
+  keeps status 500: the allowlist guards the calls the BFF builds itself (ids are
+  validated before they reach a path), so a refusal can only come from a code
+  change that calls a route missing from the allowlist. A 403 or 404 would blame
+  the client and hide the bug from the 5xx alerts.

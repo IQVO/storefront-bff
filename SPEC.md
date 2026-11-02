@@ -53,7 +53,9 @@ must only ever generate that:
   `TestNoEventEnvelopeToggleOrFlatEnvelope` fails CI if generated code does.
 - Build/validate/(un)marshal with `github.com/cloudevents/sdk-go/v2/event`
   via `internal/adapters/kafka/cloudevents/` (generated from
-  `templates/cloudevents/`); transport stays kafka-go.
+  `templates/cloudevents/`) in every instantiated Kafka service; transport
+  stays kafka-go. THIS repo (the BFF) has no Kafka wiring and no instantiated
+  copy — the template files are the fleet source of that helper.
 - Kafka header `content-type: application/cloudevents+json; charset=UTF-8`.
 - Required attributes: `specversion=1.0`, `id` (UUID, stable across outbox
   redelivery), `source=/warehouse/<repo>`, `type`, `subject` (aggregate

@@ -80,14 +80,17 @@ curl -s  http://localhost:8080/api/storefront/categories
 
 # register a shopper; the reply sets the sf_state cookie (s=<shopperId>)
 curl -si -c jar.txt -X POST http://localhost:8080/api/storefront/shoppers \
+  -H "Idempotency-Key: $(uuidgen)" \
   -H 'Content-Type: application/json' -d '{"email":"ana@example.com"}'
 
 # create a cart: with the cookie the cart is owned by the shopper, the cookie gains c=<cartId>
-curl -si -b jar.txt -c jar.txt -X POST http://localhost:8080/api/storefront/carts
+curl -si -b jar.txt -c jar.txt -X POST http://localhost:8080/api/storefront/carts \
+  -H "Idempotency-Key: $(uuidgen)"
 
-# the page may pin the Idempotency-Key identity of a click
+# every POST and PATCH needs an Idempotency-Key (one per user submit; re-send
+# the same key to retry: the answer then carries Idempotency-Replayed: true)
 curl -si -b jar.txt -X POST http://localhost:8080/api/storefront/carts/CART_ID/lines \
-  -H 'X-Action-Id: click-1' -H 'Content-Type: application/json' \
+  -H 'Idempotency-Key: submit-1' -H 'Content-Type: application/json' \
   -d '{"catalogItemId":"ITEM_ID","quantity":1}'
 ```
 

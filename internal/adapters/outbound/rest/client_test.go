@@ -58,15 +58,40 @@ func TestDoSendsComposedRequest(t *testing.T) {
 		t.Fatal(err)
 	}
 	reply, err := c.Do(context.Background(), composition.Call{
-		Service: composition.ShoppingCart, Method: "POST", Path: "/carts/c1:quote-delivery",
+		Service: composition.ShoppingCart, Method: "POST", Path: "/carts/c1/delivery-quotes",
 		Body: []byte(`{"a":1}`), IdempotencyKey: "k-1",
 	})
 	if err != nil || reply.Status != 422 || reply.ContentType != "application/problem+json" || string(reply.Body) != `{"type":"/problems/x"}` {
 		t.Fatalf("reply=%+v err=%v", reply, err)
 	}
-	if got.URL.Path != "/base/carts/c1:quote-delivery" || got.Header.Get("Idempotency-Key") != "k-1" ||
+	if got.URL.Path != "/base/carts/c1/delivery-quotes" || got.Header.Get("Idempotency-Key") != "k-1" ||
 		got.Header.Get("Content-Type") != "application/json" || gotBody != `{"a":1}` {
 		t.Fatalf("request = %s %v body=%s", got.URL, got.Header, gotBody)
+	}
+}
+
+// The provider's Idempotency-Replayed: true is read into Reply.Replayed; any
+// other value (or none) is not a replay.
+func TestDoReadsReplayedHeader(t *testing.T) {
+	val := "true"
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		if val != "" {
+			w.Header().Set("Idempotency-Replayed", val)
+		}
+		w.WriteHeader(201)
+	}))
+	defer srv.Close()
+	c, err := New(bases(srv.URL))
+	if err != nil {
+		t.Fatal(err)
+	}
+	call := composition.Call{Service: composition.ShoppingCart, Method: "POST", Path: "/carts", Body: []byte(`{}`), IdempotencyKey: "k-1"}
+	for v, want := range map[string]bool{"true": true, "": false, "false": false} {
+		val = v
+		got, err := c.Do(context.Background(), call)
+		if err != nil || got.Replayed != want {
+			t.Errorf("header %q: replayed=%v err=%v, want %v", v, got.Replayed, err, want)
+		}
 	}
 }
 

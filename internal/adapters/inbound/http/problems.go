@@ -38,6 +38,11 @@ var (
 	pUnavailable = problemKind{http.StatusServiceUnavailable, "upstream-unavailable", "An upstream service is unavailable; retry with the same action"}
 	pTimeout     = problemKind{http.StatusGatewayTimeout, "gateway-timeout", "The request exceeded its time budget"}
 	pInternal    = problemKind{http.StatusInternalServerError, "internal-error", "Internal server error"}
+	// pRouteNotAllowed stays a 5xx on purpose: the allowlist guards the calls
+	// the BFF itself builds towards an upstream (ids are validated before they
+	// reach a path), so a refusal is a server-side coding error that must raise
+	// the 5xx alerts, never a client fault (403/404 would hide it).
+	pRouteNotAllowed = problemKind{http.StatusInternalServerError, "route-not-allowed", "An upstream route is not on the storefront allowlist"}
 	// statusClientClosed is the de-facto status for a client that went away.
 	pCancelled = problemKind{499, "client-closed-request", "Client closed the request"}
 )
@@ -56,6 +61,8 @@ func writeError(w http.ResponseWriter, err error) {
 		writeProblem(w, pValidation, strings.TrimPrefix(err.Error(), composition.ErrInvalid.Error()+": "))
 	case errors.Is(err, composition.ErrNoSession):
 		writeProblem(w, pNoSession, "")
+	case errors.Is(err, composition.ErrRouteNotAllowed):
+		writeProblem(w, pRouteNotAllowed, "")
 	case errors.Is(err, composition.ErrUpstreamTimeout):
 		writeProblem(w, pTimeout, "")
 	case errors.Is(err, composition.ErrUpstreamUnavailable):

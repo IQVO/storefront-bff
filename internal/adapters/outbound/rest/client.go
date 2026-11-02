@@ -42,13 +42,21 @@ func New(bases map[composition.Service]string) (*Client, error) {
 	// otelhttp wraps the transport so every upstream call starts a client
 	// span parented to the incoming request's server span and carries its
 	// traceparent header: the storefront services' consumers then see one
-	// trace across the BFF hop. It never reads or logs bodies.
+	// trace across the BFF hop. It never reads or logs bodies. Underneath it,
+	// a per-host circuit breaker makes a failing upstream fail fast instead of
+	// consuming every route's time budget; a fast-fail is still a traced span.
 	hc := &http.Client{
-		Transport: otelhttp.NewTransport(&http.Transport{
-			Proxy:                 http.ProxyFromEnvironment,
-			MaxIdleConnsPerHost:   32,
-			IdleConnTimeout:       90 * time.Second,
-			ResponseHeaderTimeout: 0,
+		Transport: otelhttp.NewTransport(&breakerTransport{
+			inner: &http.Transport{
+				Proxy:                 http.ProxyFromEnvironment,
+				MaxIdleConnsPerHost:   32,
+				IdleConnTimeout:       90 * time.Second,
+				ResponseHeaderTimeout: 0,
+			},
+			threshold: breakerThreshold,
+			cooldown:  breakerCooldown,
+			now:       time.Now,
+			perHost:   map[string]*hostBreaker{},
 		}),
 		CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
 	}
@@ -91,7 +99,10 @@ func (c *Client) Do(ctx context.Context, call composition.Call) (composition.Rep
 	if len(data) > maxReplyBytes {
 		return composition.Reply{}, errors.New("upstream reply exceeds the size cap")
 	}
-	return composition.Reply{Status: resp.StatusCode, ContentType: resp.Header.Get("Content-Type"), Body: data}, nil
+	return composition.Reply{
+		Status: resp.StatusCode, ContentType: resp.Header.Get("Content-Type"), Body: data,
+		Replayed: resp.Header.Get("Idempotency-Replayed") == "true",
+	}, nil
 }
 
 func joinPath(base, p string) string {

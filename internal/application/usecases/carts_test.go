@@ -45,14 +45,14 @@ func TestCartCommandsMapToUpstreamVerbs(t *testing.T) {
 		run  func(*Gateway) (Outcome, error)
 		want string
 	}{
-		{"add", func(g *Gateway) (Outcome, error) { return g.AddLine(context.Background(), Actor{}, "c1", []byte(`{}`)) }, "POST /carts/c1/lines"},
-		{"dest", func(g *Gateway) (Outcome, error) { return g.SetDestination(context.Background(), Actor{}, "c1", nil) }, "POST /carts/c1:set-destination"},
-		{"quote", func(g *Gateway) (Outcome, error) { return g.QuoteDelivery(context.Background(), Actor{}, "c1") }, "POST /carts/c1:quote-delivery"},
-		{"select", func(g *Gateway) (Outcome, error) { return g.SelectDelivery(context.Background(), Actor{}, "c1", nil) }, "POST /carts/c1:select-delivery"},
+		{"add", func(g *Gateway) (Outcome, error) { return g.AddLine(context.Background(), keyed, "c1", []byte(`{}`)) }, "POST /carts/c1/lines"},
+		{"dest", func(g *Gateway) (Outcome, error) { return g.SetDestination(context.Background(), keyed, "c1", nil) }, "PUT /carts/c1/destination"},
+		{"quote", func(g *Gateway) (Outcome, error) { return g.QuoteDelivery(context.Background(), keyed, "c1") }, "POST /carts/c1/delivery-quotes"},
+		{"select", func(g *Gateway) (Outcome, error) { return g.SelectDelivery(context.Background(), keyed, "c1", nil) }, "PUT /carts/c1/delivery-selection"},
 		{"qty", func(g *Gateway) (Outcome, error) {
-			return g.SetLineQuantity(context.Background(), Actor{}, "c1", "i1", nil)
-		}, "POST /carts/c1/lines/i1:set-quantity"},
-		{"remove", func(g *Gateway) (Outcome, error) { return g.RemoveLine(context.Background(), Actor{}, "c1", "i1") }, "POST /carts/c1/lines/i1:remove"},
+			return g.SetLineQuantity(context.Background(), keyed, "c1", "i1", nil)
+		}, "PUT /carts/c1/lines/i1"},
+		{"remove", func(g *Gateway) (Outcome, error) { return g.RemoveLine(context.Background(), keyed, "c1", "i1") }, "DELETE /carts/c1/lines/i1"},
 	}
 	for _, c := range cases {
 		f := newFake().on(c.want, 200, `{}`)

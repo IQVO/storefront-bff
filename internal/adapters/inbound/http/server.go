@@ -89,9 +89,9 @@ func ok(w http.ResponseWriter, _ *http.Request) {
 	_, _ = io.WriteString(w, `{"status":"ok"}`)
 }
 
-// actor reads the cookie state and the page's optional action id.
+// actor reads the cookie state and the page's Idempotency-Key.
 func actor(r *http.Request) usecases.Actor {
-	a := usecases.Actor{ActionID: r.Header.Get("X-Action-Id")}
+	a := usecases.Actor{IdempotencyKey: r.Header.Get(idempotencyKeyHeader)}
 	if c, err := r.Cookie(composition.CookieName); err == nil {
 		a.State = composition.DecodeState(c.Value)
 	}
@@ -99,7 +99,8 @@ func actor(r *http.Request) usecases.Actor {
 }
 
 // respond relays a use case outcome: the cookie when the state changed, then
-// the upstream answer (status, content type, body) untouched.
+// the upstream answer (status, content type, body) untouched, with
+// Idempotency-Replayed: true when the write hop was a replay.
 func (s *Server) respond(w http.ResponseWriter, out usecases.Outcome, err error) {
 	if err != nil {
 		writeError(w, err)
@@ -113,6 +114,9 @@ func (s *Server) respond(w http.ResponseWriter, out usecases.Outcome, err error)
 		ct = "application/json"
 	}
 	w.Header().Set("Content-Type", ct)
+	if out.Reply.Replayed {
+		w.Header().Set(replayedHeader, "true")
+	}
 	w.WriteHeader(out.Reply.Status)
 	_, _ = w.Write(out.Reply.Body)
 }

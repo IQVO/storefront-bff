@@ -12,22 +12,19 @@ func orderingCall(method, path string, body []byte) composition.Call {
 	return composition.Call{Service: composition.CustomerOrdering, Method: method, Path: path, Body: body}
 }
 
-// ListOrders relays GET /orders; the shopper defaults to the cookie's.
+// ListOrders relays GET /orders (limit, cursor); the shopper defaults to the
+// cookie's. The answer is the provider's {items, nextCursor}.
 func (g *Gateway) ListOrders(ctx context.Context, a Actor, q url.Values) (Outcome, error) {
-	shopper := q.Get("shopperId")
+	shopper := q.Get(shopperIDParam)
 	if shopper == "" {
 		shopper = a.State.ShopperID
 	}
 	if !composition.ValidID(shopper) {
 		return Outcome{}, composition.ErrNoSession
 	}
-	fwd := url.Values{"shopperId": {shopper}}
-	for _, k := range []string{"after", "limit"} {
-		if v := q.Get(k); v != "" {
-			fwd.Set(k, v)
-		}
-	}
-	c := orderingCall("GET", "/orders", nil)
+	fwd := url.Values{shopperIDParam: {shopper}}
+	forward(fwd, q, "limit", "cursor")
+	c := orderingCall(methodGet, "/orders", nil)
 	c.Query = fwd
 	return g.relay(ctx, composition.Query, a, c)
 }
@@ -41,7 +38,7 @@ func (g *Gateway) GetOrder(ctx context.Context, a Actor, id string) (Outcome, er
 	}
 	ctx, cancel := g.begin(ctx, composition.Query)
 	defer cancel()
-	order, err := g.call(ctx, a, orderingCall("GET", "/orders/"+id, nil))
+	order, err := g.call(ctx, a, orderingCall(methodGet, "/orders/"+id, nil))
 	if err != nil || !order.OK() {
 		return Outcome{Reply: order}, err
 	}
@@ -49,7 +46,7 @@ func (g *Gateway) GetOrder(ctx context.Context, a Actor, id string) (Outcome, er
 	if json.Unmarshal(order.Body, &doc) != nil {
 		return Outcome{}, composition.UpstreamError(composition.ErrUpstreamUnavailable, composition.CustomerOrdering)
 	}
-	if tr, err := g.call(ctx, a, orderingCall("GET", "/orders/"+id+"/tracking", nil)); err == nil && tr.OK() && json.Valid(tr.Body) {
+	if tr, err := g.call(ctx, a, orderingCall(methodGet, "/orders/"+id+"/tracking", nil)); err == nil && tr.OK() && json.Valid(tr.Body) {
 		doc["tracking"] = tr.Body
 	}
 	if totals := g.checkoutTotals(ctx, a, id); totals != nil {
@@ -68,7 +65,7 @@ func (g *Gateway) checkoutTotals(ctx context.Context, a Actor, orderID string) j
 	if a.State.CheckoutID == "" {
 		return nil
 	}
-	r, err := g.call(ctx, a, checkoutCall("GET", "/checkout-sessions/"+a.State.CheckoutID, nil))
+	r, err := g.call(ctx, a, checkoutCall(methodGet, "/checkout-sessions/"+a.State.CheckoutID, nil))
 	if err != nil || !r.OK() {
 		return nil
 	}
@@ -100,11 +97,11 @@ type cancelRequest struct {
 
 const maxReasonLen = 200
 
-// CancelOrder relays POST /orders/{id}:cancel.
+// CancelOrder relays POST /orders/{id}/cancellations.
 func (g *Gateway) CancelOrder(ctx context.Context, a Actor, id string, body []byte) (Outcome, error) {
 	var req cancelRequest
 	if !composition.ValidID(id) || decodeStrict(body, &req) != nil || req.Reason == "" || len(req.Reason) > maxReasonLen {
 		return Outcome{}, composition.Invalid("order id must be valid and body must be {reason} of at most 200 characters")
 	}
-	return g.relay(ctx, composition.Command, a, orderingCall("POST", "/orders/"+id+":cancel", body))
+	return g.relay(ctx, composition.Command, a, orderingCall("POST", "/orders/"+id+"/cancellations", body))
 }

@@ -59,7 +59,7 @@ dependency is slow.
 | Server | `otelchi.Middleware(serviceName, WithChiRoutes(r))` | route pattern (`/carts/{id}/lines`) | one per request, the access-log record carries its ids |
 | Client | `otelhttp.NewTransport` in `internal/adapters/outbound/rest/client.go` | HTTP client span per upstream call | child of the server span; carries `traceparent` to the upstream so one trace crosses the BFF hop |
 
-A composed route (`GET /orders/{id}`, `POST /products/{id}:delivery-dates`) shows
+A composed route (`GET /orders/{id}`, `POST /products/{id}/delivery-date-quotes`) shows
 up as one server span with two or three client spans; a failed optional leg
 (tracking, totals, charge schedule) is visible only as that child span's error,
 not in the reply. Bodies and query strings are never put on spans or logs.

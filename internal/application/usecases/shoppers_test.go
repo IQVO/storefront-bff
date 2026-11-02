@@ -79,7 +79,7 @@ func TestMeAndAddAddressNeedAShopper(t *testing.T) {
 func TestMeAndAddAddressRelay(t *testing.T) {
 	f := newFake().on("GET /shoppers/s1", 200, `{}`).on("POST /shoppers/s1/addresses", 201, `{"addressId":"a1"}`)
 	g := newGateway(f)
-	a := Actor{State: composition.State{ShopperID: "s1"}}
+	a := Actor{State: composition.State{ShopperID: "s1"}, IdempotencyKey: "k-1"}
 	if out, err := g.Me(context.Background(), a); err != nil || out.Reply.Status != 200 {
 		t.Fatalf("me: out=%+v err=%v", out, err)
 	}

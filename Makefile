@@ -47,7 +47,7 @@ help:
 	@echo "  coverage       CI coverage command + the $(COVERAGE_THRESHOLD)% gate"
 	@echo "  integration    go test -tags=integration ./... -race -count=1"
 	@echo "                 (testcontainers boots its own Postgres/Kafka; needs only Docker; not in check)"
-	@echo "  bdd            go test ./... -run TestFeatures -v — godog/Gherkin acceptance"
+	@echo "  bdd            no godog features in this repo: prints a notice, exits 0"
 	@echo "  arch-test      go test ./internal/architecture/... -v — hexagonal fitness"
 	@echo "  mutation       gremlins on $(MUTATION_FAST_PKG) — the fast blocking subset"
 	@echo "  mutation-full  gremlins on $(MUTATION_FULL_PKG) — the exhaustive scheduled run"
@@ -110,7 +110,7 @@ integration:
 	$(GO) test -tags=integration ./... -race -count=1
 
 bdd:
-	$(GO) test ./... -run TestFeatures -v
+	@echo "no godog features in this repo (no .feature files): nothing to run"
 
 arch-test:
 	$(GO) test ./internal/architecture/... -v

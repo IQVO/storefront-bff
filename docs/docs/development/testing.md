@@ -17,16 +17,16 @@ There are **no godog features** and no schemathesis job (see the table).
 | --- | --- | --- |
 | Unit, domain (`internal/domain/composition`) | 22 top-level tests: allowlist 3, budget 3, call 2, card 4, idempotency 6, state 4 | `make test` |
 | Unit, use cases (`internal/application/usecases`) | 46: catalog 10, orders 8, checkout 7, carts 6, shoppers 6, boundaries 5, gateway 4, over a fake `ports.Upstream` | `make test` |
-| Unit and httptest, adapters and config | `inbound/http` 16 (behaviour 11, routes 3, contract 1, log sanitising 1), `inbound/requestlog` 4, `outbound/rest` 8, `outbound/telemetry` 9, `outbound/kafka` 2 and `kafka/cloudevents` 6 (scaffold packages, see below), `internal/config` 4, `cmd/api` 3 | `make test` |
+| Unit and httptest, adapters and config | `inbound/http` 17 (behaviour 12, routes 3, contract 1, log sanitising 1), `inbound/requestlog` 4, `outbound/rest` 8, `outbound/telemetry` 9, `outbound/kafka` 2 and `kafka/cloudevents` 6 (scaffold packages, see below), `internal/config` 4, `cmd/api` 3 | `make test` |
 | Coverage gate | 90 % over `./internal/domain/...`, `./internal/application/...`, `./internal/adapters/inbound/...`, `./internal/adapters/outbound/rest/...`, `./internal/config/...` | `make coverage` |
 | Integration, in-process | 7 top-level tests behind `//go:build integration`, all in `cmd/api`: shopper journey 1, composed contract and keys 1, never-calls-restricted-routes 1, card-data-never-reaches-checkout 1, budget expiry is 504 without retry 1, upstream problems pass through 1, unreachable upstream is 503 1 | `make integration` |
 | Contract | `TestRoutesMatchOpenAPI` (`internal/adapters/inbound/http/contract_test.go`) checks the router against `apis/openapi.yaml`; Spectral lints the spec in CI | `make test`, CI `api-lint` |
-| BDD (godog / Gherkin) | **none**: the repository has no `.feature` file and no godog dependency in the tree. `make bdd` runs `go test ./... -run TestFeatures`, which matches no test, so it passes without running anything | `make bdd` (vacuous) |
+| BDD (godog / Gherkin) | **none**: the repository has no `.feature` file and no godog dependency in the tree. `make bdd` (and the `bdd` CI job, which calls it) prints that there are no godog features and exits 0 without running any test | `make bdd` (notice only) |
 | Architecture fitness | 35 top-level tests in `internal/architecture` | `make arch-test` |
 | Mutation (gremlins) | efficacy 98, mutant coverage 97 (`.gremlins.yaml`); measured 100.00 % / 98.57 % over the 69 mutants of `./internal/domain` on 2026-10-26 | `make mutation`, `make mutation-full` |
 | Contract fuzzing (schemathesis), evals | **none**: no configuration and no CI job | none |
 
-The 162 top-level `Test` functions come from `grep '^func Test'` on this commit
+The 163 top-level `Test` functions come from `grep '^func Test'` on this commit
 (7 of them carry the `integration` build tag); many are table-driven, so the
 case count is higher. Run `go test ./... -v` to see the cases.
 
@@ -51,7 +51,7 @@ coverage scope and the mutation package.
 | `make test` | `go test ./... -race` | unit and httptest; no Docker |
 | `make coverage` | `go test ./... -race -coverprofile=coverage.out -coverpkg=<scope above>` then the 90 % gate | the CI `test` job runs exactly this |
 | `make integration` | `go test -tags=integration ./... -race -count=1` | in-process, no Docker; not part of `check` |
-| `make bdd` | `go test ./... -run TestFeatures -v` | matches nothing (no godog suite) |
+| `make bdd` | prints `no godog features in this repo` | exits 0, runs nothing (no godog suite) |
 | `make arch-test` | `go test ./internal/architecture/... -v` | |
 | `make mutation` | `gremlins unleash ./internal/domain/composition` | the fast blocking subset (`MUTATION_FAST_PKG`) |
 | `make mutation-full` | `gremlins unleash ./internal/domain --workers 1 --timeout-coefficient 30` | the exhaustive scheduled run |
@@ -83,8 +83,12 @@ go test ./cmd/api -tags=integration -run TestIntegrationShopperJourney -v
   and the optional-leg degradation of order detail and delivery dates.
   `boundaries_test.go` pins input validation (ids, `postalPrefix`, reason length).
 - **HTTP adapter**: `httptest` over the real router. `routes_test.go` checks that
-  every route maps to its upstream call and that commands carry a minted key
-  (and that `X-Action-Id` pins it); `behaviour_test.go` covers the state cookie,
+  every route maps to its upstream call and that commands carry a key minted
+  from the page's `Idempotency-Key`; `idempotency_test.go` pins the 400
+  `idempotency-key-required`/`-invalid` answers, the relayed
+  `Idempotency-Replayed` header, the pass-through of a provider 409
+  `idempotency-key-reused`, `TestRetiredRoutesAreGone` and the paged-list
+  parameter checks; `behaviour_test.go` covers the state cookie,
   pass-through of upstream problems, the problem mapping, NUL and oversize body
   refusal, panic to 500, health endpoints and that the access log carries no
   body, query or cookie.
@@ -123,8 +127,8 @@ off `DATABASE_URL`/`KAFKA_BROKERS`.
 `efficacy: 98` and `mutant-coverage: 97`. Gremlins fails when the measured value is
 **less than or equal to** the threshold, so a threshold sits below what the code
 achieves. The file records a measurement of 2026-10-26 over `./internal/domain`:
-69 mutants, efficacy 100.00 %, mutator coverage 98.57 % (one constant expression,
-`KeyWindow`, cannot be instrumented). Only the pure composition package is
+69 mutants, efficacy 100.00 %, mutator coverage 98.57 % (one constant expression
+could not be instrumented). Only the pure composition package is
 mutated; use cases and adapters are not. The scheduled `mutation` job (Monday
 06:00 UTC and manual dispatch) mutates `./internal/domain` as a whole; a failing
 scheduled run opens or refreshes a `harness:red` issue
@@ -165,7 +169,7 @@ weekly (Monday 06:00 UTC, mutation job only) and on manual dispatch.
 | `complexity` | golangci-lint with only `gocyclo,gocognit,cyclop,funlen,nestif`, plus an informational gocyclo report | always |
 | `file-length` | revive `file-length-limit` (300 lines of code per production Go file, config in `.golangci.yml`): blocking for the Go files a pull request into `develop` adds or touches, an informational backlog report otherwise | always |
 | `test` | `go build`, `go vet`, then `make coverage` (90 % gate); uploads `coverage.out` | always |
-| `bdd` | `go test ./... -run TestFeatures -v` (matches no test) | always |
+| `bdd` | `make bdd` (prints that there are no godog features, runs no test) | always |
 | `integration` | `go test -tags=integration ./... -race -count=1` | always |
 | `mutation-fast` | gremlins v0.6.0 on `./internal/domain/composition` | always; blocking |
 | `mutation` | `gremlins unleash ./internal/domain --workers 1 --timeout-coefficient 30`, `harness:red` issue on a scheduled failure | schedule and dispatch only |

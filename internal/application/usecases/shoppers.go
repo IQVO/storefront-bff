@@ -28,7 +28,7 @@ func (g *Gateway) Login(ctx context.Context, a Actor, body []byte) (Outcome, err
 	if decodeStrict(body, &req) != nil || req.Email == "" || len(req.Email) > maxEmailLen {
 		return Outcome{}, composition.Invalid("body must be {email}")
 	}
-	c := orderingCall("GET", "/shoppers", nil)
+	c := orderingCall(methodGet, "/shoppers", nil)
 	c.Query = url.Values{"email": {req.Email}}
 	out, err := g.relay(ctx, composition.Query, a, c)
 	return g.adoptShopper(a, out, err)
@@ -54,7 +54,7 @@ func (g *Gateway) Me(ctx context.Context, a Actor) (Outcome, error) {
 	if a.State.ShopperID == "" {
 		return Outcome{}, composition.ErrNoSession
 	}
-	return g.relay(ctx, composition.Query, a, orderingCall("GET", "/shoppers/"+a.State.ShopperID, nil))
+	return g.relay(ctx, composition.Query, a, orderingCall(methodGet, "/shoppers/"+a.State.ShopperID, nil))
 }
 
 // AddAddress relays POST /me/addresses to the shopper's saved addresses. The

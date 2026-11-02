@@ -31,4 +31,4 @@ unleash:
     mutant-coverage: "97"
     # Measured 2026-10-26 over ./internal/domain (the pure composition package):
     # 69 mutants, efficacy 100.00%, mutator coverage 98.57% (one constant
-    # expression, KeyWindow, is not instrumentable). Thresholds sit just below.
+    # expression, since removed, was not instrumentable). Thresholds sit just below.

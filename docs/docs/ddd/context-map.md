@@ -52,7 +52,7 @@ classes in the aggregator's strategic design, and the patterns in the
 | --- | --- | --- | --- | --- |
 | `storefront-bff` | `storefront-web` | C/S (the BFF supplies, the web app is the customer; the BFF's OpenAPI is the contract) | `apis/openapi.yaml`, 23 routes | none |
 | `product-discovery` | `storefront-bff` | CF + OHS | `GET /products`, `GET /products/{id}`, `GET /categories` | none |
-| `delivery-promise` | `storefront-bff` | CF + OHS / PL | `POST /delivery-offers:quote` (the quote contract is open to any client) | none |
+| `delivery-promise` | `storefront-bff` | CF + OHS / PL | `POST /delivery-quotes` (the quote contract is open to any client) | none |
 | `pricing` | `storefront-bff` | CF | `GET /delivery-charge-schedules/current` | none |
 | `shopping-cart` | `storefront-bff` | CF | nine cart routes | none |
 | `checkout` | `storefront-bff` | CF | open, read, confirm | none |
@@ -63,7 +63,7 @@ Edges that do not exist, and are kept from existing by tests:
 | Edge | Why not |
 | --- | --- |
 | `storefront-bff` to `customer-payments` or any payment provider | checkout owns authorisation; the BFF only forwards a PSP token to it |
-| `storefront-bff` to network restricted routes (`GET /orders/{id}/ship-to`, `POST /promises`, promise `:confirm` and `:cancel`, `POST /inventory-feeds`, policy routes) | the storefront is in-org with the retail network but may call only the Open Host Service routes; `TestNoInOrgNetworkRoute` and `TestAllowlistHoldsNoRestrictedRoute` |
+| `storefront-bff` to network restricted routes (`GET /orders/{id}/ship-to`, `POST /promises`, promise confirmations and cancellations, `POST /inventory-feeds`, policy routes) | the storefront is in-org with the retail network but may call only the Open Host Service routes; `TestNoInOrgNetworkRoute` and `TestAllowlistHoldsNoRestrictedRoute` |
 | `storefront-bff` to Kafka | no topic is produced or consumed |
 | any network context to `storefront-bff` | the network never depends on the storefront |
 
@@ -74,7 +74,7 @@ Edges that do not exist, and are kept from existing by tests:
   model instead of translating it, which is why a new upstream field reaches the
   page without a BFF change, except in the two composed routes.
 - **No ACL.** The only translations are the route verbs (A1 in ADR 0002: a public
-  `PATCH` becomes the cart's `:set-quantity` command) and the composed views;
+  `PATCH` becomes the cart's `PUT /carts/{id}/lines/{item}`) and the composed views;
   neither renames a domain concept.
 - **Open Host on the supplier side.** product-discovery, delivery-promise and
   customer-ordering publish routes meant for shoppers; the BFF stays inside that

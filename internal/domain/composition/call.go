@@ -42,6 +42,9 @@ type Reply struct {
 	Status      int
 	ContentType string
 	Body        []byte
+	// Replayed is true when the upstream answered a keyed command from its
+	// idempotency store (Idempotency-Replayed: true).
+	Replayed bool
 }
 
 // OK reports whether the upstream answered with a 2xx status.

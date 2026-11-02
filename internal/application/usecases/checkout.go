@@ -35,7 +35,7 @@ func (g *Gateway) OpenCheckout(ctx context.Context, a Actor, body []byte) (Outco
 		return Outcome{}, composition.Invalid("cartId and shipToAddressId are required ids")
 	}
 	open, err := json.Marshal(map[string]string{
-		"cartId": req.CartID, "shopperId": a.State.ShopperID, "shipToAddressId": req.ShipToAddressID,
+		"cartId": req.CartID, shopperIDParam: a.State.ShopperID, "shipToAddressId": req.ShipToAddressID,
 	})
 	if err != nil {
 		return Outcome{}, err
@@ -60,7 +60,7 @@ func (g *Gateway) GetCheckout(ctx context.Context, id string) (Outcome, error) {
 	if !composition.ValidID(id) {
 		return Outcome{}, composition.Invalid("checkout id is malformed")
 	}
-	return g.relay(ctx, composition.Query, Actor{}, checkoutCall("GET", "/checkout-sessions/"+id, nil))
+	return g.relay(ctx, composition.Query, Actor{}, checkoutCall(methodGet, "/checkout-sessions/"+id, nil))
 }
 
 type confirmRequest struct {
@@ -69,7 +69,7 @@ type confirmRequest struct {
 
 const maxTokenLen = 256
 
-// ConfirmCheckout relays POST /checkout/{id}:confirm with the PSP token. Raw
+// ConfirmCheckout relays POST /checkout/{id}/confirmations with the PSP token. Raw
 // card data is refused at the edge: unknown fields, card-shaped keys and a
 // token that is really a card number never leave this process.
 func (g *Gateway) ConfirmCheckout(ctx context.Context, a Actor, id string, body []byte) (Outcome, error) {
@@ -91,5 +91,5 @@ func (g *Gateway) ConfirmCheckout(ctx context.Context, a Actor, id string, body 
 	if req.PaymentMethodToken == "" || len(req.PaymentMethodToken) > maxTokenLen || composition.LooksLikeCardNumber(req.PaymentMethodToken) {
 		return Outcome{}, composition.Invalid("paymentMethodToken must be a PSP token, never a card number")
 	}
-	return g.relay(ctx, composition.Confirm, a, checkoutCall("POST", "/checkout-sessions/"+id+":confirm", body))
+	return g.relay(ctx, composition.Confirm, a, checkoutCall("POST", "/checkout-sessions/"+id+"/confirmations", body))
 }
