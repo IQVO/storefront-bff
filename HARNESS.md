@@ -108,6 +108,17 @@ already-lived incident, not a hypothetical:
   2026-10, D16). A field whose `jsonschema` description says "optional" must
   carry `omitempty`. Skips when the service has no
   `internal/adapters/inbound/mcp`.
+- REMOVED from this repo 2026-11-02, with the Kafka adapters they policed:
+  `TestOutboxRelaysPassAttemptCap`, the `kafka_writer_acks` sensor,
+  `TestDeadLetterCallsGuardCancellation`, and `TestKafkaWriterTopicNotSetTwice`
+  (entries below kept for fleet history). storefront-bff publishes and
+  consumes nothing — "No database and no Kafka" (README) — so the instantiated
+  sensors had no code to guard and the unused template adapters
+  (`internal/adapters/kafka/cloudevents`, `internal/adapters/outbound/kafka`)
+  were deleted; the fleet template still generates all of these for Kafka
+  services. Kept: `TestCloudEventsOnly`, `TestReplayConsumersSetCommitInterval`
+  and the flat-envelope toggle tripwires — they cost nothing and catch Kafka
+  (re)arriving without the fleet envelope contract.
 - **TestOutboxRelaysPassAttemptCap** (`outbox_relay_cap_fitness_test.go`,
   + `TestOutboxRelayCapSensorFailsOnBadFixtures`,
   `TestOutboxRelayDeclarationDetector`) — inventory-storage's relay had no
