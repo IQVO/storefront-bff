@@ -616,8 +616,8 @@ components:
       description: >-
         An RFC 9457 problem. Upstream problems are relayed unchanged; the edge
         adds validation-failed, session-required, malformed-request,
-        payload-too-large, upstream-unavailable (503), gateway-timeout (504)
-        and internal-error.
+        payload-too-large, upstream-unavailable (503), gateway-timeout (504),
+        route-not-allowed (500) and internal-error (500).
       content:
         application/problem+json:
           schema: {$ref: '#/components/schemas/Problem'}

@@ -154,7 +154,7 @@ jobs:
         with:
           go-version-file: go.mod
       - name: Run BDD (godog/Gherkin) acceptance tests
-        run: go test ./... -run TestFeatures -v
+        run: make bdd
 
   # ============================================================
   # CLASSIFICATION: INTEGRATION TESTING

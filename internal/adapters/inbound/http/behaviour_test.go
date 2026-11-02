@@ -77,6 +77,23 @@ func TestErrorsBecomeProblems(t *testing.T) {
 	}
 }
 
+func TestRouteNotAllowedIsItsOwnProblem(t *testing.T) {
+	// Wrapped the way Gateway.call and the REST client wrap it.
+	err := composition.UpstreamError(composition.ErrRouteNotAllowed, composition.ProductDiscovery)
+	rec := newRecorder()
+	writeError(rec, err)
+	body := rec.Body.String()
+	if rec.Code != 500 || rec.Header().Get("Content-Type") != "application/problem+json" {
+		t.Fatalf("status/content type: %d %v", rec.Code, rec.Header())
+	}
+	if !strings.Contains(body, `"type":"`+problemBase+`route-not-allowed"`) || strings.Contains(body, "internal-error") {
+		t.Errorf("type: %s", body)
+	}
+	if strings.Contains(body, "product-discovery") {
+		t.Errorf("the problem must not carry the upstream name: %s", body)
+	}
+}
+
 func TestEdgeValidationAndSessionProblems(t *testing.T) {
 	g := newRig()
 	rec := g.do("POST", "/checkout/k1/confirmations", `{"paymentMethodToken":"4111111111111111"}`, stateCookie)

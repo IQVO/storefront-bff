@@ -67,7 +67,8 @@ Public paths are REST-style; the BFF maps them to the upstream custom verbs
   `type = /problems/<slug>`. The edge's own slugs: `malformed-request` (400),
   `resource-not-found` (404), `method-not-allowed` (405), `payload-too-large`
   (413), `validation-failed` (422), `session-required` (422),
-  `client-closed-request` (499), `internal-error` (500), `upstream-unavailable`
+  `client-closed-request` (499), `internal-error` (500), `route-not-allowed`
+  (500), `upstream-unavailable`
   (503) and `gateway-timeout` (504). `detail` is a fixed sentence and never
   carries request or upstream data. The causes are listed on
   [Use cases](/docs/ddd/use-cases#errors-and-the-problem-types-they-become) and,
