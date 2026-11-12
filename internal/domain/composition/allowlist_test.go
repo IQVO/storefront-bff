@@ -8,6 +8,7 @@ func TestAllowedAcceptsEveryListedRoute(t *testing.T) {
 		{Service: ProductDiscovery, Method: "GET", Path: "/products/item-1"},
 		{Service: ProductDiscovery, Method: "GET", Path: "/categories"},
 		{Service: DeliveryPromise, Method: "POST", Path: "/delivery-quotes"},
+		{Service: DeliveryPromise, Method: "POST", Path: "/delivery-estimates"},
 		{Service: Pricing, Method: "GET", Path: "/delivery-charge-schedules/current"},
 		{Service: ShoppingCart, Method: "PUT", Path: "/carts/c1/lines/i1"},
 		{Service: ShoppingCart, Method: "DELETE", Path: "/carts/c1/lines/i1"},
