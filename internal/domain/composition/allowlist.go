@@ -11,7 +11,7 @@ import "strings"
 // routes, is refused before a request is built.
 var allowed = map[Service][]string{
 	ProductDiscovery: {"GET /products", "GET /products/{}", "GET /categories"},
-	DeliveryPromise:  {"POST /delivery-quotes"},
+	DeliveryPromise:  {"POST /delivery-quotes", "POST /delivery-estimates"},
 	Pricing:          {"GET /delivery-charge-schedules/current"},
 	ShoppingCart: {
 		"POST /carts", "GET /carts", "GET /carts/{}", "POST /carts/{}/lines",
