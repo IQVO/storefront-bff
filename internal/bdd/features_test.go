@@ -78,6 +78,7 @@ func initializeScenario(sc *godog.ScenarioContext) {
 	registerUpstream(sc, w)
 	registerPage(sc, w)
 	registerEdge(sc, w)
+	registerWave2(sc, w)
 }
 
 func registerUpstream(sc *godog.ScenarioContext, w *world) {
