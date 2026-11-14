@@ -1,0 +1,7 @@
+{
+  "version": 7,
+  "categories": [
+    { "categoryId": "cat-root", "parentId": null, "name": "All", "path": "/", "purchasableCount": 112 },
+    { "categoryId": "cat-outdoors", "parentId": "cat-root", "name": "Outdoors", "path": "/outdoors", "purchasableCount": 4 }
+  ]
+}

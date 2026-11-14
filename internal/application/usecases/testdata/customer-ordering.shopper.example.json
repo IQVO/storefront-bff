@@ -1,0 +1,17 @@
+{
+  "shopperId": "shopper-9",
+  "email": "ada@example.com",
+  "status": "ACTIVE",
+  "registeredAt": "2026-11-01T10:00:00Z",
+  "savedAddresses": [
+    {
+      "addressId": "addr-3001",
+      "name": "Ada Lovelace",
+      "line1": "1 Analytical Way",
+      "city": "Austin",
+      "region": "TX",
+      "postalCode": "78701",
+      "countryCode": "US"
+    }
+  ]
+}

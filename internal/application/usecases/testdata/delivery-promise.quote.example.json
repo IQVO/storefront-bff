@@ -1,0 +1,49 @@
+{
+  "offers": [
+    {
+      "offerId": "of-7701",
+      "state": "QUOTED",
+      "groupNo": 1,
+      "destinationPostalPrefix": "787",
+      "tier": "NEXT_DAY",
+      "lines": [
+        { "catalogItemId": "sku-9001", "quantity": 1 }
+      ],
+      "window": {
+        "earliest": "2026-11-16T14:00:00Z",
+        "latest": "2026-11-17T02:00:00Z",
+        "timeZone": "America/Chicago"
+      },
+      "witnessPath": { "nodeId": "node-hub-1", "legs": [] },
+      "basis": "NOMINAL",
+      "policyVersion": "pol-3",
+      "quotedAt": "2026-11-14T11:00:00Z",
+      "expiresAt": "2026-11-14T23:00:00Z",
+      "orderByAt": "2026-11-14T22:00:00Z"
+    },
+    {
+      "offerId": "of-7702",
+      "state": "QUOTED",
+      "groupNo": 1,
+      "destinationPostalPrefix": "787",
+      "tier": "STANDARD",
+      "lines": [
+        { "catalogItemId": "sku-9001", "quantity": 1 }
+      ],
+      "window": {
+        "earliest": "2026-11-18T14:00:00Z",
+        "latest": "2026-11-20T02:00:00Z",
+        "timeZone": "America/Chicago"
+      },
+      "witnessPath": { "nodeId": "node-hub-1", "legs": [] },
+      "basis": "NOMINAL",
+      "policyVersion": "pol-3",
+      "quotedAt": "2026-11-14T11:00:00Z",
+      "expiresAt": "2026-11-15T11:00:00Z",
+      "orderByAt": "2026-11-15T10:00:00Z"
+    }
+  ],
+  "unavailable": [
+    { "tier": "SAME_DAY", "constraint": "PAST_ORDER_DEADLINE" }
+  ]
+}
