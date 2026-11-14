@@ -1,0 +1,41 @@
+{
+  "_doc": "Every contract copy this repo pins from a producer, and the producer branch it must equal. scripts/harness/pinned_contract_gate.py fails when a copy differs from the producer's develop. Refresh = copy the file, never edit it.",
+  "pins": [
+    {
+      "local": "internal/application/usecases/testdata/checkout.openapi.yaml",
+      "repo": "IQVO/checkout",
+      "path": "apis/openapi.yaml",
+      "ref": "develop"
+    },
+    {
+      "local": "internal/application/usecases/testdata/customer-ordering.openapi.yaml",
+      "repo": "IQVO/customer-ordering",
+      "path": "apis/openapi.yaml",
+      "ref": "develop"
+    },
+    {
+      "local": "internal/application/usecases/testdata/delivery-promise.openapi.yaml",
+      "repo": "IQVO/delivery-promise",
+      "path": "apis/openapi.yaml",
+      "ref": "develop"
+    },
+    {
+      "local": "internal/application/usecases/testdata/pricing.openapi.yaml",
+      "repo": "IQVO/pricing",
+      "path": "apis/openapi.yaml",
+      "ref": "develop"
+    },
+    {
+      "local": "internal/application/usecases/testdata/product-discovery.openapi.yaml",
+      "repo": "IQVO/product-discovery",
+      "path": "apis/openapi.yaml",
+      "ref": "develop"
+    },
+    {
+      "local": "internal/application/usecases/testdata/shopping-cart.openapi.yaml",
+      "repo": "IQVO/shopping-cart",
+      "path": "apis/openapi.yaml",
+      "ref": "develop"
+    }
+  ]
+}
