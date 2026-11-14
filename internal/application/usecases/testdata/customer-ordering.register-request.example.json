@@ -1,0 +1,13 @@
+{
+  "email": "ada@example.com",
+  "savedAddresses": [
+    {
+      "name": "Ada Lovelace",
+      "line1": "1 Analytical Way",
+      "city": "Austin",
+      "region": "TX",
+      "postalCode": "78701",
+      "countryCode": "US"
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+{
+  "scheduleId": "dcs-402",
+  "version": 3,
+  "state": "CURRENT",
+  "tiers": [
+    { "tier": "NEXT_DAY", "charge": { "amountMinor": 599, "currency": "USD" } },
+    { "tier": "STANDARD", "charge": { "amountMinor": 0, "currency": "USD" }, "freeOver": { "amountMinor": 3500, "currency": "USD" } },
+    { "tier": "SAME_DAY", "charge": { "amountMinor": 999, "currency": "USD" } }
+  ]
+}

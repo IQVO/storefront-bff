@@ -1,0 +1,22 @@
+{
+  "sessionId": "cs-5001",
+  "state": "COMPLETED",
+  "cartId": "cart-7701",
+  "cartVersion": 4,
+  "shopperId": "shopper-9",
+  "shipToAddressId": "addr-3001",
+  "lines": [
+    { "lineNo": 1, "catalogItemId": "sku-9001", "quantity": 2 }
+  ],
+  "groups": [
+    { "groupNo": 1, "offerId": "of-7701", "tier": "NEXT_DAY", "lineNos": [1], "amountMinor": 2758 }
+  ],
+  "priceQuoteId": "pq-8801",
+  "currency": "USD",
+  "totalMinor": 2758,
+  "quoteExpiresAt": "2026-11-15T10:00:00Z",
+  "authorizationId": "auth-6601",
+  "orderId": "ord-5001",
+  "failureCode": null,
+  "version": 9
+}

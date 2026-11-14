@@ -1,0 +1,17 @@
+{
+  "orderId": "ord-5001",
+  "status": "SHIPPED",
+  "groups": [
+    {
+      "groupNo": 1,
+      "promiseId": "pr-4401",
+      "status": "SHIPPED",
+      "deliverByEarliest": "2026-11-16T14:00:00Z",
+      "deliverByLatest": "2026-11-17T02:00:00Z",
+      "timeZone": "America/Chicago",
+      "packages": [
+        { "trackingNumber": "1Z999AA10123456784", "destinationKind": "SHIP_TO" }
+      ]
+    }
+  ]
+}

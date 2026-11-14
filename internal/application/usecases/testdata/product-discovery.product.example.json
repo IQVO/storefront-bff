@@ -1,0 +1,12 @@
+{
+  "catalogItemId": "sku-9001",
+  "title": "Pocket Telescope",
+  "hazmat": false,
+  "fragile": true,
+  "inStock": true,
+  "purchasable": true,
+  "description": "A brass pocket telescope with 8x magnification.",
+  "bullets": ["8x magnification", "Brass body"],
+  "categoryId": "cat-outdoors",
+  "categoryPath": ["cat-root", "cat-outdoors"]
+}

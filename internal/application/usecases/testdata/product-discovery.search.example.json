@@ -1,0 +1,16 @@
+{
+  "items": [
+    {
+      "catalogItemId": "sku-9001",
+      "title": "Pocket Telescope",
+      "effectivePrice": { "amountMinor": 1999, "currency": "USD" },
+      "categoryId": "cat-outdoors",
+      "inStock": true,
+      "purchasable": true
+    }
+  ],
+  "facets": [
+    { "name": "category", "values": [ { "value": "cat-outdoors", "count": 4 } ] }
+  ],
+  "nextCursor": "c-2"
+}

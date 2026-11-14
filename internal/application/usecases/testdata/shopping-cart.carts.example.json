@@ -1,0 +1,27 @@
+{
+  "items": [
+    {
+      "cartId": "cart-7701",
+      "shopperId": "shopper-9",
+      "state": "OPEN",
+      "lines": [
+        { "catalogItemId": "sku-9001", "quantity": 2 }
+      ],
+      "destinationPostalPrefix": "787",
+      "selections": [
+        { "groupNo": 1, "offerId": "of-7701" }
+      ],
+      "estimate": {
+        "currency": "USD",
+        "itemsMinor": 1999,
+        "deliveryMinor": 599,
+        "taxMinor": 160,
+        "totalMinor": 2758,
+        "estimateComplete": true
+      },
+      "checkoutReadiness": { "ready": true, "allGroupsSelected": true, "noOfferExpired": true },
+      "version": 4
+    }
+  ],
+  "nextCursor": "c-9"
+}
