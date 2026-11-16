@@ -63,9 +63,7 @@ func (s *Server) router() chi.Router {
 	s.checkoutRoutes(r)
 	s.accountRoutes(r)
 	r.NotFound(func(w http.ResponseWriter, _ *http.Request) { writeProblem(w, pNotFound, "") })
-	r.MethodNotAllowed(func(w http.ResponseWriter, _ *http.Request) {
-		writeProblem(w, problemKind{http.StatusMethodNotAllowed, "method-not-allowed", "Method not allowed"}, "")
-	})
+	r.MethodNotAllowed(methodNotAllowedFor(r))
 	return r
 }
 
