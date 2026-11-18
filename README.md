@@ -126,7 +126,7 @@ Contract: [`apis/openapi.yaml`](apis/openapi.yaml) (OpenAPI; also mirrored on
 the warehouse-docs storefront site). The edge answers with or without the
 `/api/storefront` prefix (the binary strips its `BasePath`). Errors are
 RFC 9457 `application/problem+json`. Every `POST` and `PATCH` requires the
-page's `Idempotency-Key` (a fresh one per user submit, reused on retry; missing:
+page's `Idempotency-Key` (except the safe batch estimate, which writes nothing) (a fresh one per user submit, reused on retry; missing:
 400 `idempotency-key-required`). The BFF stores nothing: it forwards a key minted
 from (route, subject, page key), relays `Idempotency-Replayed: true` when the
 provider replayed, and passes the provider's 409 `idempotency-key-reused`
@@ -138,7 +138,8 @@ authentication) — there is no server-side session store.
 | Method and path | Composes |
 | --- | --- |
 | `GET /products`, `GET /products/{id}`, `GET /categories` | product-discovery (+ pricing) |
-| `POST /products/{id}/delivery-date-quotes` | delivery-promise |
+| `POST /products/{id}/delivery-date-quotes` | delivery-promise (+ pricing) |
+| `POST /delivery-estimates` (batch, up to 50 items, advisory; no Idempotency-Key needed, [ADR 0007](docs/adr/0007-batch-delivery-estimates-capacity-band-and-consolidated-tier.md)) | delivery-promise |
 | `GET /carts`, `POST /carts`, `GET /carts/{id}` | shopping-cart |
 | `POST /carts/{id}/lines`, `PATCH`/`DELETE /carts/{id}/lines/{item}` | shopping-cart |
 | `PUT /carts/{id}/destination`, `POST /carts/{id}/delivery-quotes`, `PUT /carts/{id}/delivery-selection` | shopping-cart + delivery-promise + pricing |

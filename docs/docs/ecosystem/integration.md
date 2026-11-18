@@ -72,7 +72,7 @@ call is refused before a request is built.
 | Upstream | Env var | Routes the BFF calls | Used by | Status |
 | --- | --- | --- | --- | --- |
 | product-discovery | `PRODUCT_DISCOVERY_URL` | `GET /products`, `GET /products/{id}`, `GET /categories` | search, product page, category tree | **Built + verified** |
-| delivery-promise | `DELIVERY_PROMISE_URL` | `POST /delivery-quotes` | `POST /products/{id}/delivery-date-quotes` | **Built + verified** |
+| delivery-promise | `DELIVERY_PROMISE_URL` | `POST /delivery-quotes`, `POST /delivery-estimates` | `POST /products/{id}/delivery-date-quotes`, `POST /delivery-estimates` | **Built + verified** |
 | pricing | `PRICING_URL` | `GET /delivery-charge-schedules/current` | the charge per tier on delivery dates | **Built + verified** |
 | shopping-cart | `SHOPPING_CART_URL` | `POST /carts`, `GET /carts`, `GET /carts/{id}`, `POST /carts/{id}/lines`, `PUT /carts/{id}/lines/{item}`, `DELETE /carts/{id}/lines/{item}`, `PUT /carts/{id}/destination`, `POST /carts/{id}/delivery-quotes`, `PUT /carts/{id}/delivery-selection` | the cart routes | **Built + verified** |
 | checkout | `CHECKOUT_URL` | `POST /checkout-sessions`, `GET /checkout-sessions/{id}`, `POST /checkout-sessions/{id}/confirmations` | open, poll, confirm | **Built + verified** |
@@ -102,6 +102,7 @@ Public paths map to upstream verbs in
 | BFF route | Calls | Required / optional |
 | --- | --- | --- |
 | `POST /products/{id}/delivery-date-quotes` | delivery-promise quote, then pricing charge schedule | the quote is required, the charge schedule is optional (tiers lose `charge` and `freeOver`) |
+| `POST /delivery-estimates` | delivery-promise `POST /delivery-estimates` only | one call, relayed unchanged; advisory, takes no Idempotency-Key ([ADR 0007](/docs/adr/0007-batch-delivery-estimates-capacity-band-and-consolidated-tier)) |
 | `GET /orders/{id}` | order, then order tracking, then the cookie's checkout session | the order is required; tracking and totals are optional, totals only when the session placed this order |
 | every other route | exactly one upstream call | the upstream answer is relayed untouched |
 

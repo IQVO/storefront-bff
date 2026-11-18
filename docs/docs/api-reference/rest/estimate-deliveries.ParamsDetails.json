@@ -1,0 +1,1 @@
+{"parameters":[{"name":"Idempotency-Key","in":"header","required":false,"description":"Not required. The operation stores nothing, so a key that is sent is ignored: it is never read, stored, forwarded or replayed.","schema":{"type":"string","minLength":1,"maxLength":128}}]}

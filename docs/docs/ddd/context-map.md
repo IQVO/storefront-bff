@@ -50,7 +50,7 @@ classes in the aggregator's strategic design, and the patterns in the
 
 | Upstream | Downstream | Pattern | Contract the BFF depends on | Events |
 | --- | --- | --- | --- | --- |
-| `storefront-bff` | `storefront-web` | C/S (the BFF supplies, the web app is the customer; the BFF's OpenAPI is the contract) | `apis/openapi.yaml`, 23 routes | none |
+| `storefront-bff` | `storefront-web` | C/S (the BFF supplies, the web app is the customer; the BFF's OpenAPI is the contract) | `apis/openapi.yaml`, 24 routes | none |
 | `product-discovery` | `storefront-bff` | CF + OHS | `GET /products`, `GET /products/{id}`, `GET /categories` | none |
 | `delivery-promise` | `storefront-bff` | CF + OHS / PL | `POST /delivery-quotes` (the quote contract is open to any client) | none |
 | `pricing` | `storefront-bff` | CF | `GET /delivery-charge-schedules/current` | none |

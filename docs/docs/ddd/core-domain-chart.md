@@ -53,7 +53,7 @@ request in time, make a retried click idempotent.
 
 - No aggregate, no entity, no repository: `internal/domain/composition` is pure
   functions and value types (`Call`, `Reply`, `Budgets`, `State`) with no I/O.
-- 23 use cases of one shape: validate ids, build an allowlisted call, run it under
+- 24 use cases of one shape: validate ids, build an allowlisted call, run it under
   a budget, relay the answer. Two compose more than one call (`DeliveryDates`
   and `GetOrder`), both with a required leg and optional legs.
 - One port (`ports.Upstream`) with one implementation.
