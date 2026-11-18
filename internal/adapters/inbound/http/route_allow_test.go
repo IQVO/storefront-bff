@@ -23,6 +23,7 @@ func TestWrongMethodCarriesAllowHeader(t *testing.T) {
 		{http.MethodPost, "/carts/c1/lines/i1", "PATCH, DELETE"},
 		{http.MethodGet, "/carts/c1/lines/i1", "PATCH, DELETE"},
 		{http.MethodPut, "/products", "GET"},
+		{http.MethodGet, "/delivery-estimates", "POST"},
 		{http.MethodGet, "/checkout", "POST"},
 		{http.MethodDelete, "/checkout/k1", "GET"},
 		{http.MethodPut, BasePath + "/carts", "GET, POST"},

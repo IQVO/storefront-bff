@@ -46,6 +46,11 @@ type quotedOffer struct {
 		TimeZone string `json:"timeZone,omitempty"`
 	} `json:"window"`
 	ExpiresAt string `json:"expiresAt"`
+	// CapacityBand (delivery-promise ADR 0023) and ConsolidationEligible (ADR
+	// 0024, the CONSOLIDATED tier only) are optional signals the quote may
+	// carry; they are relayed as quoted and absent when the quote has none.
+	CapacityBand          string `json:"capacityBand,omitempty"`
+	ConsolidationEligible *bool  `json:"consolidationEligible,omitempty"`
 }
 
 // dateTier is one product-page tier. TimeZone is the destination's IANA zone
@@ -60,6 +65,12 @@ type dateTier struct {
 	ExpiresAt string          `json:"offerExpiresAt"`
 	Charge    json.RawMessage `json:"charge,omitempty"`
 	FreeOver  json.RawMessage `json:"freeOver,omitempty"`
+	// CapacityBand is AMPLE, TIGHT or SCARCE as quoted (a signal, never a fee);
+	// ConsolidationEligible is set only on a CONSOLIDATED tier. Both are
+	// omitted when the quote has none, so a tier without them is byte-identical
+	// to what the BFF answered before they were relayed.
+	CapacityBand          string `json:"capacityBand,omitempty"`
+	ConsolidationEligible *bool  `json:"consolidationEligible,omitempty"`
 }
 
 // composeDates turns a delivery-promise quote into the product page answer:
@@ -78,7 +89,8 @@ func composeDates(prefix string, quote []byte, charges map[string]tierCharge) ([
 		if o.State != "QUOTED" {
 			continue
 		}
-		d := dateTier{Tier: o.Tier, Earliest: o.Window.Earliest, Latest: o.Window.Latest, TimeZone: o.Window.TimeZone, ExpiresAt: o.ExpiresAt}
+		d := dateTier{Tier: o.Tier, Earliest: o.Window.Earliest, Latest: o.Window.Latest, TimeZone: o.Window.TimeZone, ExpiresAt: o.ExpiresAt,
+			CapacityBand: o.CapacityBand, ConsolidationEligible: o.ConsolidationEligible}
 		if c, ok := charges[o.Tier]; ok {
 			d.Charge, d.FreeOver = c.Charge, c.FreeOver
 		}

@@ -168,3 +168,31 @@ func TestPagedListsRejectUnknownParamsAndBadLimits(t *testing.T) {
 		}
 	}
 }
+
+// A batch estimate is a safe POST (ADR 0007): the producer stores nothing, so
+// the edge asks for no Idempotency-Key, forwards none, and never answers a
+// replay or a 409 idempotency-key-reused. An invalid request is a 422 before
+// any upstream call.
+func TestDeliveryEstimatesTakeNoIdempotencyKey(t *testing.T) {
+	const body = `{"postalPrefix":"787","items":[{"catalogItemId":"p1","quantity":2}]}`
+	g := newRig()
+	g.up.replies["POST /delivery-estimates"] = reply(200, `{"estimates":[]}`)
+	for _, key := range []string{"", "page-key-1", "not visible \x01"} {
+		rec := newRecorder()
+		g.h.ServeHTTP(rec, g.reqWithKey("POST", "/delivery-estimates", body, key))
+		if rec.Code != 200 || rec.Body.String() != `{"estimates":[]}` {
+			t.Fatalf("key %q -> %d %s, want the estimate relayed", key, rec.Code, rec.Body)
+		}
+		if _, set := rec.Header()[replayedHeader]; set {
+			t.Errorf("key %q: an estimate is never a replay", key)
+		}
+		if got := g.up.last().IdempotencyKey; got != "" {
+			t.Errorf("key %q: upstream Idempotency-Key = %q, want none", key, got)
+		}
+	}
+	g.up.calls = nil
+	rec := g.do("POST", "/delivery-estimates", `{"postalPrefix":"787","items":[]}`, "")
+	if rec.Code != 422 || len(g.up.calls) != 0 || !strings.Contains(rec.Body.String(), "validation-failed") {
+		t.Fatalf("invalid estimate -> %d %s with %d upstream calls", rec.Code, rec.Body, len(g.up.calls))
+	}
+}

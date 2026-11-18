@@ -7,10 +7,13 @@
 package usecases
 
 import (
+	"bytes"
 	"encoding/json"
 	"net/http"
 	"reflect"
 	"testing"
+
+	"github.com/getkin/kin-openapi/openapi3"
 
 	"github.com/IQVO/storefront-bff/internal/domain/composition"
 )
@@ -35,6 +38,9 @@ func TestDeliveryPromisePinnedSpecCoversEveryCallSite(t *testing.T) {
 func TestDeliveryPromiseExamplesSatisfyPinnedSpec(t *testing.T) {
 	doc := loadPinnedSpec(t, "delivery-promise.openapi.yaml")
 	checkExampleSatisfiesSchema(t, doc, "delivery-promise.quote.example.json", "QuoteResponse")
+	checkExampleSatisfiesSchema(t, doc, "delivery-promise.quote-consolidated.example.json", "QuoteResponse")
+	checkExampleSatisfiesSchema(t, doc, "delivery-promise.estimate-request.example.json", "EstimateRequest")
+	checkExampleSatisfiesSchema(t, doc, "delivery-promise.estimate.example.json", "EstimateResponse")
 }
 
 // R2/R1 (pricing): the schedule fixture satisfies the pinned schema, and the
@@ -186,4 +192,166 @@ type dateWindowFixture struct {
 func TestPricingFieldsWeReadAreSpecified(t *testing.T) {
 	doc := loadPinnedSpec(t, "pricing.openapi.yaml")
 	checkDTOFieldsOfSchema(t, doc, "TierCharge", reflect.TypeOf(tierCharge{}), true)
+}
+
+// R3 (estimates): DeliveryEstimates posts the EstimateRequest the producer's
+// schema describes (destinationPostalPrefix and the items, no tiers, so the
+// producer estimates the four classic tiers and never CONSOLIDATED), expects
+// 200 and relays the estimate unchanged, capacityBand included. The producer
+// stores nothing and ignores a key, so none is minted.
+func TestDeliveryEstimatesFlowsThroughTheRealClient(t *testing.T) {
+	doc := loadPinnedSpec(t, "delivery-promise.openapi.yaml")
+	request := requestBodySchema(t, doc, http.MethodPost, "/delivery-estimates")
+	g, log := newUpstreamGateway(t, composition.DefaultBudgets(), func(c loggedCall) composition.Reply {
+		return jsonFixtureReply(t, http.StatusOK, "delivery-promise.estimate.example.json")
+	})
+	out, err := g.DeliveryEstimates(t.Context(), []byte(`{"postalPrefix":"787","items":[{"catalogItemId":"sku-9001","quantity":1},{"catalogItemId":"sku-9002","quantity":3}]}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	calls := log.to(composition.DeliveryPromise)
+	if len(calls) != 1 || calls[0].Method != http.MethodPost || calls[0].Path != "/delivery-estimates" {
+		t.Fatalf("calls = %+v, want one POST /delivery-estimates", calls)
+	}
+	if calls[0].IdempotencyKey != "" {
+		t.Error("a safe estimate carries no Idempotency-Key: the producer ignores it")
+	}
+	checkBodySatisfiesSchema(t, request, []byte(calls[0].Body), "the estimate request")
+	if got, want := bytes.TrimSpace([]byte(calls[0].Body)), bytes.TrimSpace(readContractExample(t, "delivery-promise.estimate-request.example.json")); !jsonEqual(t, got, want) {
+		t.Errorf("sent = %s, want the request fixture %s", got, want)
+	}
+	if bytes.Contains([]byte(calls[0].Body), []byte("tiers")) || bytes.Contains([]byte(calls[0].Body), []byte("CONSOLIDATED")) {
+		t.Errorf("sent = %s: the BFF must not request tiers or CONSOLIDATED yet (ADR 0007)", calls[0].Body)
+	}
+	if out.Reply.Status != http.StatusOK || !bytes.Equal(out.Reply.Body, readContractExample(t, "delivery-promise.estimate.example.json")) {
+		t.Errorf("reply = %d %s, want the producer's 200 body relayed byte for byte", out.Reply.Status, out.Reply.Body)
+	}
+	var got struct {
+		Estimates []struct {
+			Options []struct {
+				Window       struct{ Start, End, TimeZone string }
+				CapacityBand string `json:"capacityBand"`
+			} `json:"options"`
+		} `json:"estimates"`
+	}
+	if err := json.Unmarshal(out.Reply.Body, &got); err != nil || got.Estimates[0].Options[0].CapacityBand != "TIGHT" || got.Estimates[0].Options[0].Window.Start == "" {
+		t.Errorf("relayed estimate lost capacityBand or the start/end window: %v %s", err, out.Reply.Body)
+	}
+}
+
+func jsonEqual(t *testing.T, a, b []byte) bool {
+	t.Helper()
+	var x, y any
+	if err := json.Unmarshal(a, &x); err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(b, &y); err != nil {
+		t.Fatal(err)
+	}
+	return reflect.DeepEqual(x, y)
+}
+
+// R3 (estimates): the producer's 422 and a 5xx pass through the real client
+// untouched.
+func TestDeliveryEstimatesRelaysProducerProblems(t *testing.T) {
+	problem := composition.Reply{Status: http.StatusUnprocessableEntity, ContentType: "application/problem+json", Body: []byte(`{"type":"/problems/validation-failed","title":"Validation failed","status":422}`)}
+	g, _ := newUpstreamGateway(t, composition.DefaultBudgets(), func(loggedCall) composition.Reply { return problem })
+	out, err := g.DeliveryEstimates(t.Context(), []byte(`{"postalPrefix":"787","items":[{"catalogItemId":"sku-9001","quantity":1}]}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if out.Reply.Status != problem.Status || out.Reply.ContentType != problem.ContentType || !bytes.Equal(out.Reply.Body, problem.Body) {
+		t.Errorf("reply = %d %s %s, want the producer's problem untouched", out.Reply.Status, out.Reply.ContentType, out.Reply.Body)
+	}
+}
+
+// R3 (capacity band and CONSOLIDATED): a quote whose offers carry capacityBand
+// and a CONSOLIDATED offer with consolidationEligible composes tiers that
+// relay both; the tier without them stays as before.
+func TestDeliveryDatesRelaysCapacityBandAndConsolidatedTier(t *testing.T) {
+	g, log := newUpstreamGateway(t, composition.DefaultBudgets(), func(c loggedCall) composition.Reply {
+		if c.Service == "pricing" {
+			return jsonFixtureReply(t, http.StatusOK, "pricing.schedule.example.json")
+		}
+		return jsonFixtureReply(t, http.StatusOK, "delivery-promise.quote-consolidated.example.json")
+	})
+	out, err := g.DeliveryDates(t.Context(), keyed, "sku-9001", []byte(`{"postalPrefix":"787"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got struct {
+		Tiers []map[string]json.RawMessage `json:"tiers"`
+	}
+	if err := json.Unmarshal(out.Reply.Body, &got); err != nil || len(got.Tiers) != 3 {
+		t.Fatalf("tiers: %v %s", err, out.Reply.Body)
+	}
+	want := []struct{ tier, band, eligible string }{
+		{`"NEXT_DAY"`, `"SCARCE"`, ""}, {`"STANDARD"`, `"AMPLE"`, ""}, {`"CONSOLIDATED"`, "", "true"},
+	}
+	for i, w := range want {
+		tier := got.Tiers[i]
+		if string(tier["tier"]) != w.tier || string(tier["capacityBand"]) != w.band || string(tier["consolidationEligible"]) != w.eligible {
+			t.Errorf("tier[%d] = %v, want %s band=%q eligible=%q", i, tier, w.tier, w.band, w.eligible)
+		}
+	}
+	for _, c := range log.to(composition.DeliveryPromise) {
+		if bytes.Contains([]byte(c.Body), []byte("CONSOLIDATED")) || bytes.Contains([]byte(c.Body), []byte("tiers")) || bytes.Contains([]byte(c.Body), []byte("consolidatedDeliveryDay")) {
+			t.Errorf("quote request %s asks for the CONSOLIDATED tier; downstream must accept it first (ADR 0007)", c.Body)
+		}
+	}
+}
+
+// Golden: an existing offer (no capacityBand, no CONSOLIDATED) composes the
+// same bytes it did before those fields were relayed. The golden file was
+// produced by the code of origin/develop before this change.
+func TestDeliveryDatesExistingOffersAreByteIdentical(t *testing.T) {
+	g, _ := newUpstreamGateway(t, composition.DefaultBudgets(), quoteAndSchedule(t))
+	out, err := g.DeliveryDates(t.Context(), keyed, "sku-9001", []byte(`{"postalPrefix":"787"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := readContractExample(t, "delivery-dates.existing-offers.golden.json"); !bytes.Equal(out.Reply.Body, want) {
+		t.Errorf("composed = %s\nwant     = %s", out.Reply.Body, want)
+	}
+}
+
+// R4 (estimates): every field of the request the BFF sends is declared by the
+// pinned EstimateRequest and EstimateItem schemas with a compatible type.
+func TestDeliveryEstimateRequestFieldsWeSendAreSpecified(t *testing.T) {
+	doc := loadPinnedSpec(t, "delivery-promise.openapi.yaml")
+	checkDTOFieldsOfSchema(t, doc, "EstimateRequest", reflect.TypeOf(estimateUpstreamRequest{}), false)
+	checkDTOFieldsOfSchema(t, doc, "EstimateItem", reflect.TypeOf(estimateItem{}), false)
+}
+
+// R4 (BFF contract): what the BFF documents at its own edge agrees with the
+// producer fixtures it relays or composes: the estimate fixture satisfies the
+// BFF's DeliveryEstimates schema, and the composed product-page answer for a
+// quote with capacityBand and a CONSOLIDATED offer satisfies DeliveryDates.
+func TestEdgeSchemasAcceptWhatTheBFFRelaysAndComposes(t *testing.T) {
+	spec, err := openapi3.NewLoader().LoadFromFile("../../../apis/openapi.yaml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	check := func(schema string, body []byte) {
+		t.Helper()
+		var v any
+		if err := json.Unmarshal(body, &v); err != nil {
+			t.Fatal(err)
+		}
+		ref := spec.Components.Schemas[schema]
+		if ref == nil {
+			t.Fatalf("apis/openapi.yaml has no %s schema", schema)
+		}
+		if err := ref.Value.VisitJSON(v); err != nil {
+			t.Errorf("%s does not satisfy the BFF's %s: %v", body, schema, err)
+		}
+	}
+	check("DeliveryEstimates", readContractExample(t, "delivery-promise.estimate.example.json"))
+	check("DeliveryEstimatesRequest", []byte(`{"postalPrefix":"787","items":[{"catalogItemId":"sku-9001","quantity":1}]}`))
+	composed, err := composeDates("787", readContractExample(t, "delivery-promise.quote-consolidated.example.json"), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	check("DeliveryDates", composed)
+	check("DeliveryDates", readContractExample(t, "delivery-dates.existing-offers.golden.json"))
 }

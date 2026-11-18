@@ -1,0 +1,7 @@
+{
+  "destinationPostalPrefix": "787",
+  "items": [
+    { "catalogItemId": "sku-9001", "quantity": 1 },
+    { "catalogItemId": "sku-9002", "quantity": 3 }
+  ]
+}
