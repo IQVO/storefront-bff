@@ -1,0 +1,70 @@
+---
+id: estimate-deliveries
+title: "Advisory delivery estimates for the items of a listing page"
+description: "Called by the browser for a product listing (search results): one call for up to 50 items, each catalogItemId once, each with a quantity of 1 to 999. Relays delivery-promise POST /delivery-estimates for the postal prefix and returns its answer unchanged: one estimate per item in request order, with the best option per classic tier (SAME_DAY, NEXT_DAY, TWO_DAY, STANDARD) or the constraint that blocks the tier. The BFF never requests the CONSOLIDATED tier here (the request has no tiers field). An estimate is ADVISORY: it is not an offer, carries no offer id, cannot back a promise and reserves no capacity; the quote of the product page or of checkout is what the shopper promises against. The estimate window is {start, end, timeZone}, which a quote calls {earliest, latest, timeZone}. It is a safe POST: nothing is stored here or upstream, so no Idempotency-Key is required and one that is sent is ignored (delivery-promise ADR 0019, BFF ADR 0007). An invalid request answers 422 validation-failed before any upstream call; an upstream problem is relayed unchanged."
+sidebar_label: "Advisory delivery estimates for the items of a listing page"
+hide_title: true
+hide_table_of_contents: true
+api: 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
+sidebar_class_name: "post api-method"
+info_path: docs/api-reference/rest/storefront-bff-api
+custom_edit_url: null
+hide_send_button: true
+---
+
+import MethodEndpoint from "@theme/ApiExplorer/MethodEndpoint";
+import ParamsDetails from "@theme/ParamsDetails";
+import RequestSchema from "@theme/RequestSchema";
+import StatusCodes from "@theme/StatusCodes";
+import OperationTabs from "@theme/OperationTabs";
+import TabItem from "@theme/TabItem";
+import Heading from "@theme/Heading";
+import Translate from "@docusaurus/Translate";
+
+<Heading
+  as={"h1"}
+  className={"openapi__heading"}
+  children={"Advisory delivery estimates for the items of a listing page"}
+>
+</Heading>
+
+<MethodEndpoint
+  method={"post"}
+  path={"/delivery-estimates"}
+  context={"endpoint"}
+>
+  
+</MethodEndpoint>
+
+
+
+Called by the browser for a product listing (search results): one call for up to 50 items, each catalogItemId once, each with a quantity of 1 to 999. Relays delivery-promise POST /delivery-estimates for the postal prefix and returns its answer unchanged: one estimate per item in request order, with the best option per classic tier (SAME_DAY, NEXT_DAY, TWO_DAY, STANDARD) or the constraint that blocks the tier. The BFF never requests the CONSOLIDATED tier here (the request has no tiers field). An estimate is ADVISORY: it is not an offer, carries no offer id, cannot back a promise and reserves no capacity; the quote of the product page or of checkout is what the shopper promises against. The estimate window is \{start, end, timeZone\}, which a quote calls \{earliest, latest, timeZone\}. It is a safe POST: nothing is stored here or upstream, so no Idempotency-Key is required and one that is sent is ignored (delivery-promise ADR 0019, BFF ADR 0007). An invalid request answers 422 validation-failed before any upstream call; an upstream problem is relayed unchanged.
+
+<Heading
+  id={"request"}
+  as={"h2"}
+  className={"openapi-tabs__heading"}
+>
+  <Translate id="theme.openapi.request.title">Request</Translate>
+</Heading>
+
+<ParamsDetails
+  {...require("./estimate-deliveries.ParamsDetails.json")}
+>
+  
+</ParamsDetails>
+
+<RequestSchema
+  {...require("./estimate-deliveries.RequestSchema.json")}
+>
+  
+</RequestSchema>
+
+<StatusCodes
+  {...require("./estimate-deliveries.StatusCodes.json")}
+>
+  
+</StatusCodes>
+
+
+      

@@ -15,7 +15,8 @@ func upstreams(t *testing.T) map[string]*fake {
 			"GET /categories":  {200, `{"version":1,"categories":[{"categoryId":"home","name":"Home","path":"Home","purchasableCount":1}]}`},
 		}),
 		"DELIVERY_PROMISE_URL": newFake(t, map[string]answer{
-			"POST /delivery-quotes": {200, `{"offers":[{"state":"QUOTED","tier":"NEXT_DAY","window":{"earliest":"2026-10-27T08:00:00Z","latest":"2026-10-27T20:00:00Z"},"expiresAt":"2026-10-26T13:00:00Z"}],"unavailable":[]}`},
+			"POST /delivery-quotes":    {200, `{"offers":[{"state":"QUOTED","tier":"NEXT_DAY","window":{"earliest":"2026-10-27T08:00:00Z","latest":"2026-10-27T20:00:00Z"},"expiresAt":"2026-10-26T13:00:00Z"}],"unavailable":[]}`},
+			"POST /delivery-estimates": {200, `{"computedAt":"2026-11-18T11:00:00Z","destinationPostalPrefix":"787","estimates":[{"catalogItemId":"p1","quantity":1,"options":[{"tier":"NEXT_DAY","window":{"start":"2026-10-27T08:00:00Z","end":"2026-10-27T20:00:00Z","timeZone":"America/Chicago"},"basis":"SCHEDULED","capacityBand":"TIGHT"}],"constraints":[]}]}`},
 		}),
 		"PRICING_URL": newFake(t, map[string]answer{
 			"GET /delivery-charge-schedules/current": {200, `{"tiers":[{"tier":"NEXT_DAY","charge":{"amountMinor":599,"currency":"USD"}}]}`},
@@ -53,6 +54,7 @@ func TestIntegrationShopperJourney(t *testing.T) {
 		{"GET", "/products?q=lamp", "", 200},
 		{"GET", "/products/p1", "", 200},
 		{"POST", "/products/p1/delivery-date-quotes", `{"postalPrefix":"787"}`, 200},
+		{"POST", "/delivery-estimates", `{"postalPrefix":"787","items":[{"catalogItemId":"p1","quantity":1}]}`, 200},
 		{"POST", "/shoppers", `{"email":"a@example.test"}`, 201},
 		{"POST", "/me/addresses", `{"line1":"1 Test Way","postalCode":"78701"}`, 201},
 		{"POST", "/carts", ``, 201},

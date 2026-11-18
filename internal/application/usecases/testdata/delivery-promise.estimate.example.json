@@ -1,0 +1,48 @@
+{
+  "computedAt": "2026-11-18T11:00:00Z",
+  "destinationPostalPrefix": "787",
+  "estimates": [
+    {
+      "catalogItemId": "sku-9001",
+      "quantity": 1,
+      "options": [
+        {
+          "tier": "NEXT_DAY",
+          "window": {
+            "start": "2026-11-19T14:00:00Z",
+            "end": "2026-11-20T02:00:00Z",
+            "timeZone": "America/Chicago"
+          },
+          "basis": "SCHEDULED",
+          "confidence": 0.942,
+          "orderByAt": "2026-11-18T22:00:00Z",
+          "capacityBand": "TIGHT"
+        },
+        {
+          "tier": "STANDARD",
+          "window": {
+            "start": "2026-11-21T14:00:00Z",
+            "end": "2026-11-23T02:00:00Z",
+            "timeZone": "America/Chicago"
+          },
+          "basis": "NOMINAL",
+          "orderByAt": "2026-11-19T10:00:00Z",
+          "capacityBand": "AMPLE",
+          "carrierArea": true
+        }
+      ],
+      "constraints": [
+        { "tier": "SAME_DAY", "code": "PAST_ORDER_DEADLINE" },
+        { "tier": "TWO_DAY", "code": "NODE_CAPACITY_EXHAUSTED" }
+      ]
+    },
+    {
+      "catalogItemId": "sku-9002",
+      "quantity": 3,
+      "options": [],
+      "constraints": [
+        { "code": "ITEM_QUANTITY_NOT_AVAILABLE" }
+      ]
+    }
+  ]
+}

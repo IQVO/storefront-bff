@@ -38,6 +38,12 @@ const sidebar: SidebarsConfig = {
           label: "Delivery dates and charges for one unit of a product",
           className: "api-method post",
         },
+        {
+          type: "doc",
+          id: "api-reference/rest/estimate-deliveries",
+          label: "Advisory delivery estimates for the items of a listing page",
+          className: "api-method post",
+        },
       ],
     },
     {

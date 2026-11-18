@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/url"
 	"strings"
 	"testing"
@@ -163,5 +164,121 @@ func TestDeliveryDatesGarbledQuoteIsUnavailable(t *testing.T) {
 	_, err := newGateway(f).DeliveryDates(context.Background(), keyed, "p1", []byte(`{"postalPrefix":"787"}`))
 	if !errors.Is(err, composition.ErrUpstreamUnavailable) {
 		t.Fatalf("err = %v", err)
+	}
+}
+
+// The tier relays capacityBand as quoted and consolidationEligible only when
+// the quote carries it (a quoted false is kept), and a tier without them stays
+// exactly as before: no new key appears.
+func TestDeliveryDatesRelaysCapacityBandAndConsolidationEligible(t *testing.T) {
+	quote := `{"offers":[
+ {"state":"QUOTED","tier":"NEXT_DAY","capacityBand":"TIGHT","window":{"earliest":"2026-11-19T14:00:00Z","latest":"2026-11-20T02:00:00Z","timeZone":"America/Chicago"},"expiresAt":"2026-11-18T12:10:00Z"},
+ {"state":"QUOTED","tier":"CONSOLIDATED","consolidationEligible":false,"window":{"earliest":"2026-11-21T14:00:00Z","latest":"2026-11-22T02:00:00Z"},"expiresAt":"2026-11-18T12:10:00Z"},
+ {"state":"QUOTED","tier":"CONSOLIDATED","consolidationEligible":true,"capacityBand":"SCARCE","window":{"earliest":"2026-11-22T14:00:00Z","latest":"2026-11-23T02:00:00Z"},"expiresAt":"2026-11-18T12:10:00Z"},
+ {"state":"QUOTED","tier":"STANDARD","window":{"earliest":"2026-11-24T14:00:00Z","latest":"2026-11-25T02:00:00Z"},"expiresAt":"2026-11-18T12:10:00Z"}],
+ "unavailable":[]}`
+	f := newFake().on("POST /delivery-quotes", 200, quote).on("GET /delivery-charge-schedules/current", 200, scheduleBody)
+	out, err := newGateway(f).DeliveryDates(context.Background(), keyed, "p1", []byte(`{"postalPrefix":"787"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got struct {
+		Tiers []map[string]json.RawMessage `json:"tiers"`
+	}
+	if err := json.Unmarshal(out.Reply.Body, &got); err != nil || len(got.Tiers) != 4 {
+		t.Fatalf("tiers: %v %s", err, out.Reply.Body)
+	}
+	want := []struct{ band, eligible string }{{`"TIGHT"`, ""}, {"", "false"}, {`"SCARCE"`, "true"}, {"", ""}}
+	for i, w := range want {
+		_, hasBand := got.Tiers[i]["capacityBand"]
+		_, hasEligible := got.Tiers[i]["consolidationEligible"]
+		if string(got.Tiers[i]["capacityBand"]) != w.band || string(got.Tiers[i]["consolidationEligible"]) != w.eligible ||
+			hasBand != (w.band != "") || hasEligible != (w.eligible != "") {
+			t.Errorf("tier[%d] = %v, want capacityBand=%q consolidationEligible=%q", i, got.Tiers[i], w.band, w.eligible)
+		}
+	}
+	for _, c := range f.calls {
+		if c.Service == composition.DeliveryPromise && (strings.Contains(string(c.Body), "tiers") || strings.Contains(string(c.Body), "consolidatedDeliveryDay")) {
+			t.Fatalf("the quote request must not ask for CONSOLIDATED yet: %s", c.Body)
+		}
+	}
+}
+
+const estimateReply = `{"computedAt":"2026-11-18T11:00:00Z","destinationPostalPrefix":"787","estimates":[{"catalogItemId":"p1","quantity":2,"options":[{"tier":"NEXT_DAY","window":{"start":"2026-11-19T14:00:00Z","end":"2026-11-20T02:00:00Z","timeZone":"America/Chicago"},"basis":"SCHEDULED","capacityBand":"SCARCE"}],"constraints":[]}]}`
+
+func TestDeliveryEstimatesRelaysTheEstimateUnchanged(t *testing.T) {
+	f := newFake().on("POST /delivery-estimates", 200, estimateReply)
+	out, err := newGateway(f).DeliveryEstimates(context.Background(), []byte(`{"postalPrefix":"787","items":[{"catalogItemId":"p1","quantity":2},{"catalogItemId":"p2","quantity":1}]}`))
+	if err != nil || out.Reply.Status != 200 || string(out.Reply.Body) != estimateReply || out.Reply.Replayed {
+		t.Fatalf("out=%+v err=%v", out, err)
+	}
+	got := f.last()
+	const wantBody = `{"destinationPostalPrefix":"787","items":[{"catalogItemId":"p1","quantity":2},{"catalogItemId":"p2","quantity":1}]}`
+	if got.Service != composition.DeliveryPromise || got.Method != "POST" || got.Path != "/delivery-estimates" || string(got.Body) != wantBody {
+		t.Fatalf("call = %+v body=%s", got, got.Body)
+	}
+	if got.IdempotencyKey != "" || len(f.calls) != 1 {
+		t.Fatalf("a safe estimate mints no key and makes one call: %+v", f.calls)
+	}
+}
+
+func TestDeliveryEstimatesPassesUpstreamProblemsThrough(t *testing.T) {
+	for _, status := range []int{400, 422, 503} {
+		f := newFake().on("POST /delivery-estimates", status, `{"type":"/problems/x"}`)
+		out, err := newGateway(f).DeliveryEstimates(context.Background(), []byte(`{"postalPrefix":"787","items":[{"catalogItemId":"p1","quantity":1}]}`))
+		if err != nil || out.Reply.Status != status {
+			t.Errorf("status %d: out=%+v err=%v", status, out, err)
+		}
+	}
+	f := newFake().fail("POST /delivery-estimates", context.DeadlineExceeded)
+	_, err := newGateway(f).DeliveryEstimates(context.Background(), []byte(`{"postalPrefix":"787","items":[{"catalogItemId":"p1","quantity":1}]}`))
+	if !errors.Is(err, composition.ErrUpstreamTimeout) {
+		t.Errorf("err = %v, want the timeout sentinel", err)
+	}
+}
+
+func estimateBody(n int) string {
+	var items []string
+	for i := range n {
+		items = append(items, fmt.Sprintf(`{"catalogItemId":"p%d","quantity":1}`, i))
+	}
+	return `{"postalPrefix":"787","items":[` + strings.Join(items, ",") + `]}`
+}
+
+func TestDeliveryEstimatesValidation(t *testing.T) {
+	long := strings.Repeat("a", 65)
+	bad := []string{
+		``, `{}`, `{"postalPrefix":"787"}`, `{"postalPrefix":"787","items":[]}`,
+		`{"items":[{"catalogItemId":"p1","quantity":1}]}`,
+		`{"postalPrefix":"","items":[{"catalogItemId":"p1","quantity":1}]}`,
+		`{"postalPrefix":"78/7","items":[{"catalogItemId":"p1","quantity":1}]}`,
+		`{"postalPrefix":"787","items":[{"catalogItemId":"p1","quantity":0}]}`,
+		`{"postalPrefix":"787","items":[{"catalogItemId":"p1","quantity":1000}]}`,
+		`{"postalPrefix":"787","items":[{"catalogItemId":"p1"}]}`,
+		`{"postalPrefix":"787","items":[{"catalogItemId":"","quantity":1}]}`,
+		`{"postalPrefix":"787","items":[{"catalogItemId":"a/b","quantity":1}]}`,
+		`{"postalPrefix":"787","items":[{"catalogItemId":"` + long + `","quantity":1}]}`,
+		`{"postalPrefix":"787","items":[{"catalogItemId":"p1","quantity":1},{"catalogItemId":"p1","quantity":2}]}`,
+		`{"postalPrefix":"787","items":[{"catalogItemId":"p1","quantity":1,"price":1}]}`,
+		// the page never asks for a tier: CONSOLIDATED is refused by the producer, and not requested yet
+		`{"postalPrefix":"787","tiers":["CONSOLIDATED"],"items":[{"catalogItemId":"p1","quantity":1}]}`,
+		`{"postalPrefix":"787","tiers":["NEXT_DAY"],"items":[{"catalogItemId":"p1","quantity":1}]}`,
+		`{"postalPrefix":"787","items":[{"catalogItemId":"p1","quantity":1}]} x`,
+		estimateBody(51),
+	}
+	for _, body := range bad {
+		f := newFake()
+		if _, err := newGateway(f).DeliveryEstimates(context.Background(), []byte(body)); !errors.Is(err, composition.ErrInvalid) || len(f.calls) != 0 {
+			t.Errorf("body %.80q: err = %v, calls = %d, want invalid before any upstream call", body, err, len(f.calls))
+		}
+	}
+	for _, body := range []string{
+		estimateBody(1), estimateBody(50),
+		`{"postalPrefix":"787","items":[{"catalogItemId":"` + strings.Repeat("a", 64) + `","quantity":999}]}`,
+	} {
+		f := newFake().on("POST /delivery-estimates", 200, `{}`)
+		if _, err := newGateway(f).DeliveryEstimates(context.Background(), []byte(body)); err != nil || len(f.calls) != 1 {
+			t.Errorf("body %.80q: err = %v, calls = %d, want accepted", body, err, len(f.calls))
+		}
 	}
 }

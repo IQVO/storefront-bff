@@ -20,3 +20,4 @@ immutable; a changed decision gets a new ADR that supersedes the old one. The
 | [0004](/docs/adr/0004-bff-relays-the-category-tree) | The BFF relays the category tree | Accepted (2026-10-29). |
 | [0005](/docs/adr/0005-delivery-dates-carry-the-window-time-zone) | Delivery dates carry the window's time zone | Accepted (2026-10-30). |
 | [0006](/docs/adr/0006-adopt-the-fleet-rest-api-guideline) | Adopt the fleet REST API guideline | Accepted (2026-11-01). Supersedes ADR 0002 A3. |
+| [0007](/docs/adr/0007-batch-delivery-estimates-capacity-band-and-consolidated-tier) | Batch delivery estimates, the capacity band and the CONSOLIDATED tier | Accepted (2026-11-18). Refines ADR 0006 for one safe POST. |

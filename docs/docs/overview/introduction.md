@@ -76,7 +76,8 @@ packages are scaffold leftovers `cmd/api` never wires), any persistence.
    forwarded.
 2. **Delivery dates on a product page**: `POST /products/{id}/delivery-date-quotes`
    quotes one unit for a postal prefix and joins each tier's delivery charge
-   from pricing; a failing charge schedule only drops the charge.
+   from pricing; a failing charge schedule only drops the charge. A listing page
+   gets advisory dates for up to 50 items in one `POST /delivery-estimates`.
 3. **Cart**: create, read, list, add a line, change a quantity, remove a line,
    set a destination, quote and select delivery, each mapped to the cart's
    custom verbs ([ADR 0002](/docs/adr/0002-storefront-bff-assumptions)).

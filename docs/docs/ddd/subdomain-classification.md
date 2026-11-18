@@ -33,7 +33,7 @@ and [context map](https://iqvo.github.io/warehouse-docs/storefront/strategic-des
   conversion enabler (every shopper request passes through it).
 
 The complexity is low: one pure package (`internal/domain/composition`, 69
-mutants), 23 use cases that each translate one route into one to three
+mutants), 24 use cases that each translate one route into one to three
 allowlisted calls, and no state. See the
 [Core domain chart](/docs/ddd/core-domain-chart).
 

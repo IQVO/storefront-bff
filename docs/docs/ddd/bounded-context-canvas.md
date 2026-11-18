@@ -46,7 +46,7 @@ flowchart LR
         o5["checkout"]:::ctx
         o6["customer-ordering"]:::ctx
     end
-    in0 -->|"cmd and qry - REST<br/>/api/storefront, 23 routes"| BC
+    in0 -->|"cmd and qry - REST<br/>/api/storefront, 24 routes"| BC
     BC -.->|"qry - REST<br/>products, categories"| o1
     BC -->|"qry - REST<br/>delivery-quotes"| o2
     BC -.->|"qry - REST<br/>delivery-charge-schedules/current"| o3
@@ -82,7 +82,7 @@ cookie, and never store or log what passes through.
 
 ## Domain roles
 
-- **Gateway**: `Gateway` and its 23 use cases (`internal/application/usecases`).
+- **Gateway**: `Gateway` and its 24 use cases (`internal/application/usecases`).
 - **State holder**: `composition.State` carried in the `sf_state` cookie.
 - **Guard**: the allowlist, the budgets, `MintKey`, the card guard and the
   NUL and size limits.

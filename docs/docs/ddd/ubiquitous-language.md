@@ -38,8 +38,10 @@ fixed by `apis/openapi.yaml` or an ADR rather than by a Go identifier.
 | **Session (route)** | `POST /sessions`: an e-mail lookup that stores the shopper id. There is no password and no authentication. | `usecases.Login`, `createSession` *(contract)* |
 | **Cart** | The shopping-cart resource; its id rides in the cookie as `c`. | `State.CartID` |
 | **Checkout session** | The checkout resource; its id rides as `k` and lets order detail join totals. | `State.CheckoutID` |
-| **Delivery dates** | The product-page answer: one tier per quoted offer with its window, charge and time zone. | `usecases.DeliveryDates`, `composeDates`, `dateTier` |
-| **Tier** | A delivery speed tier of the network (for example `NEXT_DAY`). | `quotedOffer.Tier`, `tierCharge` |
+| **Delivery dates** | The product-page answer: one tier per quoted offer with its window, charge, time zone, optional capacity band and, for CONSOLIDATED, `consolidationEligible`. | `usecases.DeliveryDates`, `composeDates`, `dateTier` |
+| **Delivery estimate** | The advisory batch answer for a listing page (`POST /delivery-estimates`): per item, the best option per tier with a `start`/`end` window, or the constraint that blocks the tier; not an offer. | `usecases.DeliveryEstimates` |
+| **Capacity band** | AMPLE, TIGHT or SCARCE: the producer's capacity pressure signal on an offer or option; relayed, never interpreted. | `dateTier.CapacityBand` |
+| **Tier** | A delivery speed tier of the network (for example `NEXT_DAY`; `CONSOLIDATED` is accepted when returned, not yet requested). | `quotedOffer.Tier`, `tierCharge` |
 | **Postal prefix** | 1 to 10 letters, digits, spaces or dashes: a prefix, never an address. | `validPostalPrefix` |
 | **Payment method token** | The PSP token the page sends on confirm; the only payment datum the BFF accepts. | `confirmRequest.PaymentMethodToken` |
 | **Card guard** | Refusal of card-shaped JSON keys and Luhn-valid tokens. | `IsCardFieldName`, `LooksLikeCardNumber` |

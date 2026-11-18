@@ -26,4 +26,10 @@ func (s *Server) catalogRoutes(r chi.Router) {
 		out, err := s.g.DeliveryDates(r.Context(), actor(r), chi.URLParam(r, "id"), readBody(r))
 		s.respond(w, out, err)
 	}))
+	// A computation over the body, nothing stored (ADR 0007): a safe POST
+	// takes no Idempotency-Key, which is ignored if sent.
+	r.Post("/delivery-estimates", func(w http.ResponseWriter, r *http.Request) {
+		out, err := s.g.DeliveryEstimates(r.Context(), readBody(r))
+		s.respond(w, out, err)
+	})
 }

@@ -18,6 +18,13 @@ Feature: The storefront edge relays and guards upstream calls
     And the edge answers with body {"version":2,"categories":[{"categoryId":"home","name":"Home","path":"Home","purchasableCount":3}]}
     And the last upstream call was "GET /categories" with no query and no Idempotency-Key
 
+  Scenario: A listing page's delivery estimates are relayed unchanged and need no Idempotency-Key
+    Given the upstream answers "POST /delivery-estimates" with status 200 and body {"computedAt":"2026-11-18T11:00:00Z","destinationPostalPrefix":"787","estimates":[{"catalogItemId":"p1","quantity":1,"options":[{"tier":"NEXT_DAY","window":{"start":"2026-11-19T14:00:00Z","end":"2026-11-20T02:00:00Z","timeZone":"America/Chicago"},"basis":"SCHEDULED","capacityBand":"TIGHT"}],"constraints":[]}]}
+    When the page sends "POST /api/storefront/delivery-estimates" with body {"postalPrefix":"787","items":[{"catalogItemId":"p1","quantity":1}]} and no Idempotency-Key
+    Then the edge answers status 200
+    And the edge answers with body {"computedAt":"2026-11-18T11:00:00Z","destinationPostalPrefix":"787","estimates":[{"catalogItemId":"p1","quantity":1,"options":[{"tier":"NEXT_DAY","window":{"start":"2026-11-19T14:00:00Z","end":"2026-11-20T02:00:00Z","timeZone":"America/Chicago"},"basis":"SCHEDULED","capacityBand":"TIGHT"}],"constraints":[]}]}
+    And the last upstream call was "POST /delivery-estimates" with no query and no Idempotency-Key
+
   Scenario: An upstream problem passes through unchanged
     Given the upstream answers "GET /carts/c1" with the problem status 404 and body {"type":"/problems/not-found"}
     When the page sends "GET /carts/c1"
