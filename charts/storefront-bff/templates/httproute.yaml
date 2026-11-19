@@ -5,6 +5,10 @@ metadata:
   name: {{ include "storefront-bff.fullname" . }}
   labels:
     {{- include "storefront-bff.labels" . | nindent 4 }}
+  {{- with include "storefront-bff.kongPluginNames" . }}
+  annotations:
+    konghq.com/plugins: {{ . | quote }}
+  {{- end }}
 spec:
   parentRefs:
     {{- range .Values.gatewayApi.parentRefs }}
